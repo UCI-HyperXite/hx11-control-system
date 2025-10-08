@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, dev, 'feature/*' ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Install dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-tidy cppcheck gcovr
+
+      # 3. Configure Debug build (with sanitizers)
+      - name: Configure Debug Build
+        run: |
+          cmake -S . -B build/Debug -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_C_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined" \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      # 4. Static analysis
+      - name: Static Analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          cppcheck --error-exitcode=1 --enable=warning,style,performance --inline-suppr src include
+          files="$(git ls-files '*.c' '*.cc' '*.cpp' '*.cxx' || true)"
+          if [[ -n "${files}" ]]; then
+            clang-tidy -p build/Debug ${files} --warnings-as-errors=*
+          else
+            echo "No C/C++ files detected; skipping clang-tidy."
+          fi
+
+      # 5. Build Debug
+      - name: Build Debug
+        run: cmake --build build/Debug --config Debug
+
+      # 6. Run unit tests Debug
+      - name: Run Unit Tests Debug
+        run: ctest --test-dir build/Debug --output-on-failure
+
+      # 7. Configure Release build
+      - name: Configure Release Build
+        run: |
+          cmake -S . -B build/Release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      # 8. Build Release
+      - name: Build Release
+        run: cmake --build build/Release --config Release
+
+      # 9. Run unit tests Release
+      - name: Run Unit Tests Release
+        run: ctest --test-dir build/Release --output-on-failure
+
+      # 10. Coverage (Debug only)
+      - name: Coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          if compgen -G "build/Debug/**/*.gcda" > /dev/null || compgen -G "build/Debug/**/*.gcno" > /dev/null; then
+            gcovr -r . --branches --xml -o build/Debug/coverage.xml
+            gcovr -r . --branches
+          else
+            echo "No coverage data found, skipping gcovr."
+          fi
+
+      # 11. Upload artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: build
+          if-no-files-found: warn
