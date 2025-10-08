@@ -10,7 +10,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address,undefined")
 endif()
 
-add_executable(hx11 src/main.c)
+add_executable(hx11 src/main.cpp)
 
 enable_testing()
 add_test(NAME SampleTest COMMAND hx11)
