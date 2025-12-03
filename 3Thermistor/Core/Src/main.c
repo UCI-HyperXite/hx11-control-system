@@ -23,6 +23,8 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
+#include <time.h>
 
 #include "thermistor.h"
 
@@ -122,22 +124,61 @@ int main(void)
     Error_Handler();
   }
 
-  float T1, T2, T3 = 0;
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+
+//	RTC_TimeTypeDef currentTime;
+//	RTC_DateTypeDef currentDate;
+//	time_t timestamp;
+//	struct tm currTime;
+  //	  HAL_RTC_GetTime(&hrtc, &currentTime, RTC_FORMAT_BIN);
+  //	  HAL_RTC_GetDate(&hrtc, &currentDate, RTC_FORMAT_BIN);
+  //
+  //	  currTime.tm_year = currentDate.Year + 100;
+  //	  currTime.tm_mday = currentDate.Date;
+  //	  currTime.tm_mon  = currentDate.Month - 1;
+  //
+  //	  currTime.tm_hour = currentTime.Hours;
+  //	  currTime.tm_min  = currentTime.Minutes;
+  //	  currTime.tm_sec  = currentTime.Seconds;
+  //
+  //	  currTime.tm_isdst = -1;
+  //
+  //	  timestamp = mktime(&currTime);
+  //	  printf("T1: %.2f °C | T2: %.2f °C | T3: %.2f °C\r\n\r\n", T1, T2, T3);
+  //	  printf("T1,%.2f,T2,%.2f,T3,%.2f,%ld\r\n", T1, T2, T3, (long)timestamp);
+  //	  printf("T1,%.2f,T2,%.2f,T3,%.2f,%ld\r\n", T1, T2, T3, time_elapsed);
+
+
+
+  uint32_t startTime = HAL_GetTick();
+  uint32_t hours = 0;
+  uint32_t minutes = 0;
+  uint32_t seconds = 0;
+  uint32_t time_elapsed = 0;
+  float T1 = 0, T2 = 0, T3 = 0;
   uint16_t rawValues[3];
-  printf("Starting ADC DMA\r\n");
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, 3);
-  printf("Start\r\n");
+
+  // print header
+  printf("Name,Temperature,Time\r\n");
+
   while (1)
   {
-	  printf("Waiting for callback\r\n");
 	  while (!convCompleted);
-	  printf("Finished waiting\r\n");
 	  convCompleted = 0;
+	  time_elapsed = HAL_GetTick() - startTime;
+	  // convert to hours minutes seconds string
+	  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
+
 	  T1 = ntc_convertToC(rawValues[0]);
 	  T2 = ntc_convertToC(rawValues[1]);
 	  T3 = ntc_convertToC(rawValues[2]);
 
-	  printf("T1: %.2f °C | T2: %.2f °C | T3: %.2f °C\r\n\r\n", T1, T2, T3);
+	  printf("BriGitte,%.2f,%02lu:%02lu:%02lu\r\n", T1, hours, minutes, seconds);
+	  printf("BlackTape,%.2f,%02lu:%02lu:%02lu\r\n", T2, hours, minutes, seconds);
+	  printf("BlueTape,%.2f,%02lu:%02lu:%02lu\r\n", T3, hours, minutes, seconds);
+
 
 	  HAL_Delay(1000);
 
@@ -254,7 +295,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_9;
+  sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
@@ -339,6 +380,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_t* minutes, uint32_t* seconds) {
+    uint32_t total_seconds = total_milliseconds / 1000;
+
+    *seconds = total_seconds % 60;
+    *minutes = (total_seconds / 60) % 60;
+    *hours = total_seconds / 3600;
+}
 
 /* USER CODE END 4 */
 
