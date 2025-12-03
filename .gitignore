@@ -36,6 +36,22 @@
 *.exe
 *.out
 *.app
+*.i*86
+*.x86_64
+*.hex
+*.bin
 
 # debug information files
 *.dwo
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# STM32CubeIDE
+.metadata/
+.settings/
+Debug/
+debug/
+Release/
+release
