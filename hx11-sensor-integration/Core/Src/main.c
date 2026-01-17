@@ -28,16 +28,14 @@
 #include <stdlib.h>
 
 #include "MPU6050.h"
-#include "VL53L0X.h"
-#include "VL6180.h"
 #include "thermistor.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-int Get_distance();
-void configuration_set(int);
+int retrieve_lidar_distance();
+void lidar_config(int);
 
 /* USER CODE END PTD */
 
@@ -105,7 +103,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 
-	/* USER CODE END 1 */
+  /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -157,33 +155,8 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  // VL6180 initialization
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_1, GPIO_PIN_SET);  // Enable sensor
-  if (VL6180_Init(&hi2c2) != HAL_OK) {
-	printf("VL6180 init failed!\r\n");
-	Error_Handler();
-  }
-  printf("VL6180 initialized successfully.\r\n");
-
-  // Initialise the VL53L0X
-  statInfo_t_VL53L0X distanceStr;
-  uint16_t distance;
-
-  if (HAL_I2C_IsDeviceReady(&hi2c1, 0x52, 1, 100) == HAL_OK) {
-	  printf("connected\r\n");
-  } else {
-	  printf("not connected\r\n");
-  }
-
-  printf("Initializing TOF.\r\n");
-  initVL53L0X(1, &hi2c1);
-
   // Configure the sensor for high accuracy and speed in 20 cm.
-  configuration_set(4);
-  setSignalRateLimit(200);
-  setVcselPulsePeriod(VcselPeriodPreRange, 10);
-  setVcselPulsePeriod(VcselPeriodFinalRange, 14);
-  setMeasurementTimingBudget(300 * 1000UL);
+  lidar_config(4);
 
   // MPU initialization
   MPU6050_Initialization(&hi2c3);
@@ -198,24 +171,15 @@ int main(void)
   uint32_t minutes = 0;
   uint32_t seconds = 0;
   uint32_t time_elapsed = 0;
-  float T1 = 0, T2 = 0;
-  uint16_t rawValues[3];
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, 3);
+  float T1 = 0, T2 = 0, T3 = 0, T4 = 0;
+  uint16_t rawValues[4];
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, 4);
 
 
   while (1)
   {
-	  // need to also check if need to reconnect
-	  distance = readRangeSingleMillimeters(&distanceStr);
-	  printf("TOF VL53L0X Distance: %d mm\r\n", distance);
-	  // get TOF V6 distance too
-	  uint8_t id;
-	  HAL_I2C_Mem_Read(&hi2c2, VL6180_ADDR, 0x0000, I2C_MEMADD_SIZE_16BIT, &id, 1, HAL_MAX_DELAY);
-	  uint8_t range = VL6180_ReadRange(&hi2c2);
-	  printf("TOF VL6180 Distance: %d mm\r\n", range);
-
 	  // LIDAR
-	  object_distance = Get_distance();
+	  object_distance = retrieve_lidar_distance();
 	  printf("LIDAR Distance: %lu cm\r\n", object_distance);
 
 	  // Thermistors
@@ -226,9 +190,13 @@ int main(void)
 
 	  T1 = ntc_convertToC(rawValues[0]);
 	  T2 = ntc_convertToC(rawValues[1]);
+	  T3 = ntc_convertToC(rawValues[2]);
+	  T4 = ntc_convertToC(rawValues[3]);
 
-	  printf("BlackTape,%.2f,%02lu:%02lu:%02lu\r\n", T1, hours, minutes, seconds);
-	  printf("BlueTape,%.2f,%02lu:%02lu:%02lu\r\n", T2, hours, minutes, seconds);
+	  printf("1,%.2f,%02lu:%02lu:%02lu\r\n", T1, hours, minutes, seconds);
+	  printf("2,%.2f,%02lu:%02lu:%02lu\r\n", T2, hours, minutes, seconds);
+	  printf("3,%.2f,%02lu:%02lu:%02lu\r\n", T3, hours, minutes, seconds);
+	  printf("4,%.2f,%02lu:%02lu:%02lu\r\n", T4, hours, minutes, seconds);
 
 	  // MPU6050
 	  if(MPU6050_DataReady()) {
@@ -341,7 +309,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 4;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -365,7 +333,7 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_15;
+  sConfig.Channel = ADC_CHANNEL_16;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_810CYCLES_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
@@ -379,8 +347,26 @@ static void MX_ADC1_Init(void)
 
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_16;
+  sConfig.Channel = ADC_CHANNEL_15;
   sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_10;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_18;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -630,7 +616,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void configuration_set(int configur)
+void lidar_config(int configur)
 {
     // configuration setting for lidar
     cmd[0] = 0x04;
@@ -707,7 +693,7 @@ void configuration_set(int configur)
 }
 
 
-int Get_distance()
+int retrieve_lidar_distance()
 {
     cmd[0]=0x04;
     HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x00,1,cmd,1,100);
