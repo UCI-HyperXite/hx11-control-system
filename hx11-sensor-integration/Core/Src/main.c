@@ -29,6 +29,8 @@
 
 #include "MPU6050.h"
 #include "thermistor.h"
+#include "ina219.h"
+//#include "lidar.h"
 
 /* USER CODE END Includes */
 
@@ -42,6 +44,7 @@ void lidar_config(int);
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define LIDAR_ADD 0x62<<1  // i2c slave address of lidar lite
+
 
 /* USER CODE END PD */
 
@@ -57,7 +60,6 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
 I2C_HandleTypeDef hi2c3;
 I2C_HandleTypeDef hi2c4;
 
@@ -65,7 +67,7 @@ I2C_HandleTypeDef hi2c4;
 uint32_t m_distance,object_distance;
 uint8_t cmd[1];
 uint8_t data[2]={10};
-char str[100];
+
 
 /* USER CODE END PV */
 
@@ -75,7 +77,6 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_I2C4_Init(void);
 /* USER CODE BEGIN PFP */
@@ -126,7 +127,6 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_ADC1_Init();
-  MX_I2C2_Init();
   MX_I2C3_Init();
   MX_I2C4_Init();
   /* USER CODE BEGIN 2 */
@@ -171,32 +171,47 @@ int main(void)
   uint32_t minutes = 0;
   uint32_t seconds = 0;
   uint32_t time_elapsed = 0;
-  float T1 = 0, T2 = 0, T3 = 0, T4 = 0;
-  uint16_t rawValues[4];
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, 4);
+  int thermistor_count = 8;
+  uint16_t rawValues[thermistor_count];
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, thermistor_count);
+
+  // INA
+  INA219_t ina219;
+  uint16_t vbus, vshunt, current, power;
+
+  INA219_t ina219_1;
+  uint16_t vbus1, vshunt1, current1, power1;
+  char uart_tx_buff[100];
+  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
+      Error_Handler();
+  }
+
+  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
+      Error_Handler();
+  }
 
 
   while (1)
   {
 	  // LIDAR
 	  object_distance = retrieve_lidar_distance();
-	  printf("LIDAR Distance: %lu cm\r\n", object_distance);
+//	  printf("LIDAR Distance: %lu cm\r\n", object_distance);
+	  sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
 
 	  // Thermistors
-	  while (!convCompleted);
-	  convCompleted = 0;
-	  time_elapsed = HAL_GetTick() - startTime;
-	  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
-
-	  T1 = ntc_convertToC(rawValues[0]);
-	  T2 = ntc_convertToC(rawValues[1]);
-	  T3 = ntc_convertToC(rawValues[2]);
-	  T4 = ntc_convertToC(rawValues[3]);
-
-	  printf("1,%.2f,%02lu:%02lu:%02lu\r\n", T1, hours, minutes, seconds);
-	  printf("2,%.2f,%02lu:%02lu:%02lu\r\n", T2, hours, minutes, seconds);
-	  printf("3,%.2f,%02lu:%02lu:%02lu\r\n", T3, hours, minutes, seconds);
-	  printf("4,%.2f,%02lu:%02lu:%02lu\r\n", T4, hours, minutes, seconds);
+	  if (convCompleted) {
+		  convCompleted = 0;
+		  time_elapsed = HAL_GetTick() - startTime;
+		  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
+		  for (int i=0; i<thermistor_count; i++) {
+			  float value = ntc_convertToC(rawValues[i]);
+//			  printf("Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+			  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+		  }
+	  }
 
 	  // MPU6050
 	  if(MPU6050_DataReady()) {
@@ -213,11 +228,58 @@ int main(void)
 		  roll  = alpha * roll  + (1 - alpha) * acc_roll;
 		  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
 
-		  printf("Roll: %f  Pitch: %f\r\n", roll, pitch);
-		  printf("Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-		  printf("Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-		  printf("Acc Raw | x: %d, y: %d, z: %d\r\n\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
+//		  printf("Roll: %f  Pitch: %f\r\n", roll, pitch);
+//		  printf("Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
+//		  printf("Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
+//		  printf("Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
+
+		  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+		  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+		  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+		  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
 	  }
+
+	  // INA
+	  vbus = INA219_ReadBusVoltage(&ina219);
+	  vshunt = INA219_ReadShuntVoltage(&ina219);
+	  current = INA219_ReadCurrent(&ina219);
+	  power = INA219_ReadPower(&ina219);
+
+	  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  vbus1 = INA219_ReadBusVoltage(&ina219_1);
+	  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
+	  current1 = INA219_ReadCurrent(&ina219_1);
+	  power1 = INA219_ReadPower(&ina219_1);
+
+	  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+
 	  HAL_Delay(500);
 
     /* USER CODE END WHILE */
@@ -309,7 +371,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.NbrOfConversion = 4;
+  hadc1.Init.NbrOfConversion = 8;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
@@ -371,6 +433,42 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_3;
+  sConfig.Rank = ADC_REGULAR_RANK_5;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_4;
+  sConfig.Rank = ADC_REGULAR_RANK_6;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_14;
+  sConfig.Rank = ADC_REGULAR_RANK_7;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_15;
+  sConfig.Rank = ADC_REGULAR_RANK_8;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
@@ -422,54 +520,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x10707DBC;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -599,9 +649,9 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin : PC8 */
