@@ -67,10 +67,17 @@ I2C_HandleTypeDef hi2c4;
 TIM_HandleTypeDef htim1;
 DMA_HandleTypeDef hdma_tim1_ch1;
 
-/* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
+/* Definitions for brianlion */
+osThreadId_t brianlionHandle;
+const osThreadAttr_t brianlion_attributes = {
+  .name = "brianlion",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityBelowNormal6,
+};
+/* Definitions for zariniweenie */
+osThreadId_t zariniweenieHandle;
+const osThreadAttr_t zariniweenie_attributes = {
+  .name = "zariniweenie",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
@@ -92,6 +99,7 @@ static void MX_I2C3_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_TIM1_Init(void);
 void StartDefaultTask(void *argument);
+void StartTask02(void *argument);
 
 /* USER CODE BEGIN PFP */
 void convert_millis_to_hms(uint32_t, uint32_t*, uint32_t*, uint32_t*);
@@ -168,8 +176,11 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
+  /* creation of brianlion */
+  brianlionHandle = osThreadNew(StartDefaultTask, NULL, &brianlion_attributes);
+
+  /* creation of zariniweenie */
+  zariniweenieHandle = osThreadNew(StartTask02, NULL, &zariniweenie_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -944,6 +955,24 @@ void StartDefaultTask(void *argument)
     osDelay(1);
   }
   /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_StartTask02 */
+/**
+* @brief Function implementing the zariniweenie thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTask02 */
+void StartTask02(void *argument)
+{
+  /* USER CODE BEGIN StartTask02 */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartTask02 */
 }
 
 /**
