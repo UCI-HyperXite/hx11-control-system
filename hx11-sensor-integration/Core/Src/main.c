@@ -67,19 +67,40 @@ I2C_HandleTypeDef hi2c4;
 TIM_HandleTypeDef htim1;
 DMA_HandleTypeDef hdma_tim1_ch1;
 
-/* Definitions for brianlion */
-osThreadId_t brianlionHandle;
-const osThreadAttr_t brianlion_attributes = {
-  .name = "brianlion",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityBelowNormal6,
-};
-/* Definitions for zariniweenie */
-osThreadId_t zariniweenieHandle;
-const osThreadAttr_t zariniweenie_attributes = {
-  .name = "zariniweenie",
-  .stack_size = 128 * 4,
+/* Definitions for lidarTask */
+osThreadId_t lidarTaskHandle;
+const osThreadAttr_t lidarTask_attributes = {
+  .name = "lidarTask",
+  .stack_size = 762 * 4,
   .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for mpuTask */
+osThreadId_t mpuTaskHandle;
+const osThreadAttr_t mpuTask_attributes = {
+  .name = "mpuTask",
+  .stack_size = 762 * 4,
+  .priority = (osPriority_t) osPriorityBelowNormal,
+};
+/* Definitions for thermistorsTask */
+osThreadId_t thermistorsTaskHandle;
+const osThreadAttr_t thermistorsTask_attributes = {
+  .name = "thermistorsTask",
+  .stack_size = 762 * 4,
+  .priority = (osPriority_t) osPriorityNormal1,
+};
+/* Definitions for LEDTask */
+osThreadId_t LEDTaskHandle;
+const osThreadAttr_t LEDTask_attributes = {
+  .name = "LEDTask",
+  .stack_size = 762 * 4,
+  .priority = (osPriority_t) osPriorityNormal2,
+};
+/* Definitions for INATask */
+osThreadId_t INATaskHandle;
+const osThreadAttr_t INATask_attributes = {
+  .name = "INATask",
+  .stack_size = 762 * 4,
+  .priority = (osPriority_t) osPriorityNormal3,
 };
 /* USER CODE BEGIN PV */
 uint32_t m_distance,object_distance;
@@ -98,8 +119,11 @@ static void MX_ADC1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_TIM1_Init(void);
-void StartDefaultTask(void *argument);
-void StartTask02(void *argument);
+void StartLidarTask(void *argument);
+void StartMPUTask(void *argument);
+void StartThermistorsTask(void *argument);
+void StartLEDTask(void *argument);
+void StartINATask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void convert_millis_to_hms(uint32_t, uint32_t*, uint32_t*, uint32_t*);
@@ -176,11 +200,20 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of brianlion */
-  brianlionHandle = osThreadNew(StartDefaultTask, NULL, &brianlion_attributes);
+  /* creation of lidarTask */
+  lidarTaskHandle = osThreadNew(StartLidarTask, NULL, &lidarTask_attributes);
 
-  /* creation of zariniweenie */
-  zariniweenieHandle = osThreadNew(StartTask02, NULL, &zariniweenie_attributes);
+  /* creation of mpuTask */
+  mpuTaskHandle = osThreadNew(StartMPUTask, NULL, &mpuTask_attributes);
+
+  /* creation of thermistorsTask */
+  thermistorsTaskHandle = osThreadNew(StartThermistorsTask, NULL, &thermistorsTask_attributes);
+
+  /* creation of LEDTask */
+  LEDTaskHandle = osThreadNew(StartLEDTask, NULL, &LEDTask_attributes);
+
+  /* creation of INATask */
+  INATaskHandle = osThreadNew(StartINATask, NULL, &INATask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -208,6 +241,7 @@ int main(void)
   {
     Error_Handler();
   }
+
 
   /* Start scheduler */
   osKernelStart();
@@ -259,120 +293,7 @@ int main(void)
 
   while (1)
   {
-	  // switch to change based on state later
-	  printf("Pink\r\n");
-	  WS2812_SetAll(128, 0, 64);
-	  WS2812_Start();
-	  HAL_Delay(500);
-	  printf("Blue\r\n");
-	  WS2812_SetAll(0, 0, 180);
-	  WS2812_Start();
-	  HAL_Delay(500);
-	  printf("Yellow\r\n");
-	  WS2812_SetAll(128, 128, 0);
-	  WS2812_Start();
-	  HAL_Delay(500);
-	  printf("Green\r\n");
-	  WS2812_SetAll(0, 180, 0);
-	  WS2812_Start();
-	  HAL_Delay(500);
-	  printf("Red\r\n");
-	  WS2812_SetAll(180, 0, 0);
-	  WS2812_Start();
-	  HAL_Delay(500);
-
-
-	  // LIDAR
-	  object_distance = retrieve_lidar_distance();
-//	  printf("LIDAR Distance: %lu cm\r\n", object_distance);
-	  sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-
-	  // Thermistors
-	  if (convCompleted) {
-		  convCompleted = 0;
-		  time_elapsed = HAL_GetTick() - startTime;
-		  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
-		  for (int i=0; i<thermistor_count; i++) {
-			  float value = ntc_convertToC(rawValues[i]);
-//			  printf("Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-			  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-		  }
-	  }
-
-	  // MPU6050
-	  if(MPU6050_DataReady()) {
-		  MPU6050_ProcessData(&MPU6050);
-		  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
-		  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
-		                      * 180.0f / M_PI;
-
-		  // 2. Integrate gyro
-		  roll  += MPU6050.gyro_x * dt;
-		  pitch += MPU6050.gyro_y * dt;
-
-		  // 3. Complementary filter
-		  roll  = alpha * roll  + (1 - alpha) * acc_roll;
-		  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
-
-//		  printf("Roll: %f  Pitch: %f\r\n", roll, pitch);
-//		  printf("Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-//		  printf("Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-//		  printf("Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
-
-		  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-		  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-		  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-		  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  }
-
-	  // INA
-	  vbus = INA219_ReadBusVoltage(&ina219);
-	  vshunt = INA219_ReadShuntVoltage(&ina219);
-	  current = INA219_ReadCurrent(&ina219);
-	  power = INA219_ReadPower(&ina219);
-
-	  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  vbus1 = INA219_ReadBusVoltage(&ina219_1);
-	  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
-	  current1 = INA219_ReadCurrent(&ina219_1);
-	  power1 = INA219_ReadPower(&ina219_1);
-
-	  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-	  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-
-	  HAL_Delay(500);
-
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -939,40 +860,241 @@ void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_
 
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_StartDefaultTask */
+/* USER CODE BEGIN Header_StartLidarTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
+  * @brief  Function implementing the lidarTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
+/* USER CODE END Header_StartLidarTask */
+void StartLidarTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	printf("Lidar Task Starting...\r\n");
+
+	/* Configure lidar once */
+	lidar_config(4);
+	uint32_t object_distance;
+
+	char uart_tx_buff[100];
+
+	for(;;)
+	{
+		object_distance = retrieve_lidar_distance();
+		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
+		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		//printf("Lidar task ALIVE");
+		osDelay(300);
+	}
   /* USER CODE END 5 */
 }
 
-/* USER CODE BEGIN Header_StartTask02 */
+/* USER CODE BEGIN Header_StartMPUTask */
 /**
-* @brief Function implementing the zariniweenie thread.
+* @brief Function implementing the mpuTask thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartTask02 */
-void StartTask02(void *argument)
+/* USER CODE END Header_StartMPUTask */
+void StartMPUTask(void *argument)
 {
-  /* USER CODE BEGIN StartTask02 */
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
+  /* USER CODE BEGIN StartMPUTask */
+	  printf("MPU Task Starting...\r\n");
+
+	  // MPU initialization
+	  MPU6050_Initialization(&hi2c3);
+	  printf("Finished MPU initialization.\r\n");
+	  float roll = 0, pitch = 0;
+	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
+	  uint32_t lastTick = osKernelGetTickCount();
+	  char uart_tx_buff[150];
+
+	  /* Infinite loop */
+	  for(;;)
+	  {
+		  if(MPU6050_DataReady()) {
+			  uint32_t now = osKernelGetTickCount();
+			  float dt = (now - lastTick) / 1000.0f;
+			  lastTick = now;
+
+			  MPU6050_ProcessData(&MPU6050);
+			  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
+			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
+								  * 180.0f / M_PI;
+
+			  // 2. Integrate gyro
+			  roll  += MPU6050.gyro_x * dt;
+			  pitch += MPU6050.gyro_y * dt;
+
+			  // 3. Complementary filter
+			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
+			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
+
+			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+			  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+			  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+			 }
+	  //printf("MPU task initialized!");
+	  osDelay(300);
   }
-  /* USER CODE END StartTask02 */
+  /* USER CODE END StartMPUTask */
+}
+
+/* USER CODE BEGIN Header_StartThermistorsTask */
+/**
+* @brief Function implementing the thermistorsTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartThermistorsTask */
+void StartThermistorsTask(void *argument)
+{
+  /* USER CODE BEGIN StartThermistorsTask */
+		uint32_t startTime = HAL_GetTick();
+	    uint32_t hours = 0;
+	    uint32_t minutes = 0;
+	    uint32_t seconds = 0;
+	    uint32_t time_elapsed = 0;
+	    int thermistor_count = 8;
+	    uint16_t rawValues[thermistor_count];
+	    char uart_tx_buff[100];  // <-- buffer for sprintf
+
+	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
+	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, thermistor_count);
+
+	  /* Infinite loop */
+	  for(;;)
+	  {
+		  if (convCompleted) {
+			  convCompleted = 0;
+			  time_elapsed = HAL_GetTick() - startTime;
+			  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
+			  for (int i=0; i<thermistor_count; i++) {
+				  float value = ntc_convertToC(rawValues[i]);
+				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+			  }
+		  }
+		  //printf("Thermistors ALIVE");
+		  osDelay(300);
+	  }
+	  /* USER CODE END StartThermistorsTask */
+}
+
+/* USER CODE BEGIN Header_StartLEDTask */
+/**
+* @brief Function implementing the LEDTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartLEDTask */
+void StartLEDTask(void *argument)
+{
+  /* USER CODE BEGIN StartLEDTask */
+	WS2812_Init(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+	/* Infinite loop */
+	for(;;)
+	  {
+	  printf("Pink\r\n");
+	  WS2812_SetAll(128, 0, 64);
+	  WS2812_Start();
+	  osDelay(500);
+	  printf("Blue\r\n");
+	  WS2812_SetAll(0, 0, 180);
+	  WS2812_Start();
+	  osDelay(500);
+	  printf("Yellow\r\n");
+	  WS2812_SetAll(128, 128, 0);
+	  WS2812_Start();
+	  osDelay(500);
+	  printf("Green\r\n");
+	  WS2812_SetAll(0, 180, 0);
+	  WS2812_Start();
+	  osDelay(500);
+	  printf("Red\r\n");
+	  WS2812_SetAll(180, 0, 0);
+	  WS2812_Start();
+	  osDelay(500);
+
+		//printf("LED Task Alive!");
+		osDelay(300);
+	  }
+  /* USER CODE END StartLEDTask */
+}
+
+/* USER CODE BEGIN Header_StartINATask */
+/**
+* @brief Function implementing the INATask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartINATask */
+void StartINATask(void *argument)
+{
+  /* USER CODE BEGIN StartINATask */
+	  INA219_t ina219;
+	  uint16_t vbus, vshunt, current, power;
+
+	  INA219_t ina219_1;
+	  uint16_t vbus1, vshunt1, current1, power1;
+	  char uart_tx_buff[100];
+	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
+		  Error_Handler();
+	  }
+
+	  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
+		  Error_Handler();
+	  }
+
+	  /* Infinite loop */
+	  for(;;)
+	  {
+		  vbus = INA219_ReadBusVoltage(&ina219);
+		  vshunt = INA219_ReadShuntVoltage(&ina219);
+		  current = INA219_ReadCurrent(&ina219);
+		  power = INA219_ReadPower(&ina219);
+
+		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  vbus1 = INA219_ReadBusVoltage(&ina219_1);
+		  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
+		  current1 = INA219_ReadCurrent(&ina219_1);
+		  power1 = INA219_ReadPower(&ina219_1);
+
+		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		//printf("INA Task Alive!");
+		osDelay(300);
+	  }
+  /* USER CODE END StartINATask */
 }
 
 /**
