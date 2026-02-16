@@ -1,21 +1,3 @@
-/* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
@@ -102,6 +84,13 @@ const osThreadAttr_t INATask_attributes = {
   .stack_size = 762 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
+/* Definitions for FSMTask */
+osThreadId_t FSMTaskHandle;
+const osThreadAttr_t FSMTask_attributes = {
+  .name = "FSMTask",
+  .stack_size = 762 * 4,
+  .priority = (osPriority_t) osPriorityNormal3,
+};
 /* USER CODE BEGIN PV */
 uint32_t m_distance,object_distance;
 uint8_t cmd[1];
@@ -124,6 +113,7 @@ void StartMPUTask(void *argument);
 void StartThermistorsTask(void *argument);
 void StartLEDTask(void *argument);
 void StartINATask(void *argument);
+void StartFSMTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 void convert_millis_to_hms(uint32_t, uint32_t*, uint32_t*, uint32_t*);
@@ -138,6 +128,48 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 		convCompleted = 1;
 	}
 }
+
+typedef struct {
+	unint32_t lidar_dist; //LiDAR
+
+	float roll, pitch; //MPU
+
+	float thermistors[8]; //thermies
+
+	float pt_up, pt_down; //ina219
+
+	float lv_batt; //ina260
+
+	float hv_batt_temp, hv_batt; //BMS
+
+	enum pod_status;
+} SensorData;
+
+
+#define EVT_LOAD_COMPLETE       (1 << 0)
+#define EVT_PRECHARGE_COMPLETE  (1 << 1)
+#define EVT_START_COMPLETE      (1 << 2)
+#define EVT_STOP_COMPLETE       (1 << 3)
+#define EVT_FAULT               (1 << 4)
+
+enum pod_status {
+	INIT,
+	LOAD,
+	PRECHARGE,
+	START,
+	FAULT,
+	HALT,
+	STOP
+};
+
+typedef struct {
+    pod_status currentState;
+    pod_status nextState;
+    uint32_t eventFlags; // bitmask of events
+} FSM_t;
+
+FSM_t fsm = { .currentState = INIT, .nextState = INIT, .eventFlags = 0 };
+SensorData sendData;
 
 /* USER CODE END 0 */
 
@@ -243,6 +275,8 @@ int main(void)
   }
 
 
+  SensorData g_sensorData;
+
   /* Start scheduler */
   osKernelStart();
 
@@ -251,44 +285,6 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  // Configure the sensor for high accuracy and speed in 20 cm.
-  lidar_config(4);
-
-  // MPU initialization
-  MPU6050_Initialization(&hi2c3);
-  printf("Finished MPU initialization.\r\n");
-  float roll = 0, pitch = 0;
-  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
-  float dt = 0.50f;           // 500ms (because used HAL_Delay(500))
-
-  // thermistor variables
-  uint32_t startTime = HAL_GetTick();
-  uint8_t hours = 0;
-  uint8_t minutes = 0;
-  uint8_t seconds = 0;
-  uint32_t time_elapsed = 0;
-  int thermistor_count = 8;
-  uint16_t rawValues[thermistor_count];
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, thermistor_count);
-
-  // INA
-  INA219_t ina219;
-  uint16_t vbus, vshunt, current, power;
-
-  INA219_t ina219_1;
-  uint16_t vbus1, vshunt1, current1, power1;
-  char uart_tx_buff[100];
-  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
-      Error_Handler();
-  }
-
-  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
-      Error_Handler();
-  }
-
-  // LED Strip Lights
-  WS2812_Init(&htim1, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
 
 
   while (1)
@@ -297,6 +293,121 @@ int main(void)
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
+}
+
+
+void init_actions(SensorData *data) {
+	// INIT actions
+    data->lidar_dist = 0;
+    data->roll = 0;
+    data->pitch = 0;
+    for(int i=0; i<8; i++) data->thermistors[i] = 0;
+
+    // Turn off LEDs or set to INIT color
+    WS2812_SetAll(0, 0, 50);
+    WS2812_Start();
+
+    printf("INIT actions completed\r\n");
+}
+
+void load_actions(SensorData *data) {
+	// LOAD actions
+
+    printf("LOAD actions completed\r\n");
+}
+
+void precharge_actions(SensorData *data) {
+	// PRECHARGE actions
+
+    printf("PRECHARGE actions completed\r\n");
+}
+
+void start_actions(SensorData *data) {
+	// START actions
+
+    printf("START actions completed\r\n");
+}
+
+void stop_actions(SensorData *data) {
+	// STOP actions
+
+    printf("STOP actions completed\r\n");
+}
+
+void fault_actions(SensorData *data) {
+	// FAULT actions
+
+    printf("FAULT actions completed\r\n");
+}
+
+void halt_actions(SensorData *data) {
+	// HALT actions
+
+    printf("HALT actions completed\r\n");
+}
+
+
+void StartFSMTask(void *argument) {
+	unint32_t flags = 0;
+
+	for (;;) {
+		// check for manual override first
+		if (flags & EVT_USER_INIT)	fsm.currentState = INIT;
+		else if (flags & EVT_USER_LOAD)  fsm.currentState = LOAD;
+		else if (flags & EVT_USER_PRECHARGE) fsm.currentState = PRECHARGE;
+		else if (flags & EVT_USER_START) fsm.currentState = START;
+		else if (flags & EVT_USER_STOP)  fsm.currentState = STOP;
+		else if (flags & EVT_USER_FAULT) fsm.currentState = FAULT;
+
+
+		switch(fsm.currentState) {
+		case INIT:
+			init_actions(&sensorData);
+			if(fsm.eventFlags & EVT_LOAD_COMPLETE) {
+				printf("INIT -> LOAD\n");
+				fsm.nextState = LOAD;
+				fsm.eventFlags &= ~EVT_LOAD_COMPLETE;
+			}
+			break;
+		case LOAD:
+			load_actions(&sensorData);
+			if(fsm.eventFlags & EVT_PRECHARGE_COMPLETE) {
+				printf("LOAD -> PRECHARGE\n");
+				fsm.nextState = PRECHARGE;
+				fsm.eventFlags &= ~EVT_PRECHARGE_COMPLETE;
+			}
+			break;
+		case PRECHARGE:
+			precharge_actions(&sensorData);
+			if(flags & EVT_START_COMPLETE) {
+				printf("PRECHARGE --> START\n");
+				fsm.currentState = START;
+			}
+		case START:
+			start_actions(&sensorData);
+			if(flags & EVT_STOP_COMPLETE) {
+				printf("START --> STOP\n");
+				fsm.currentState = START;
+			}
+			break;
+		case STOP:
+			stop_actions(&sensorData);
+			if(flags & EVT_FAULT_COMPLETE) {
+				printf("STOP --> FAULT\n");
+				fsm.currentState = START;
+			}
+			break;
+		case FAULT:
+			fault_actions(&sensorData);
+			fsm.currentState = START;
+			break;
+		case HALT:
+			halt_actions(&sensorData);
+			break;
+		}
+		flags = 0;
+		osDelay(50); // non-blocking
+	}
 }
 
 /**
