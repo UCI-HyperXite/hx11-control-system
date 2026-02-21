@@ -129,30 +129,28 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 	}
 }
 
+#define CMD_NONE 0
+#define CMD_LOAD 1
+#define CMD_PRECHARGE 2
+
 typedef struct {
-	unint32_t lidar_dist; //LiDAR
+	uint32_t lidar_dist; //LiDAR
 
 	float roll, pitch; //MPU
 
 	float thermistors[8]; //thermies
 
-	float pt_up, pt_down; //ina219
+	float pt_up, pt_down; //ina219, left and right brake
 
 	float lv_batt; //ina260
 
 	float hv_batt_temp, hv_batt; //BMS
 
-	enum pod_status;
+	//enum pod_status;
 } SensorData;
 
 
-#define EVT_LOAD_COMPLETE       (1 << 0)
-#define EVT_PRECHARGE_COMPLETE  (1 << 1)
-#define EVT_START_COMPLETE      (1 << 2)
-#define EVT_STOP_COMPLETE       (1 << 3)
-#define EVT_FAULT               (1 << 4)
-
-enum pod_status {
+typedef enum {
 	INIT,
 	LOAD,
 	PRECHARGE,
@@ -160,16 +158,34 @@ enum pod_status {
 	FAULT,
 	HALT,
 	STOP
-};
+} pod_status;
 
 typedef struct {
     pod_status currentState;
-    pod_status nextState;
-    uint32_t eventFlags; // bitmask of events
+    pod_status previousState;
+    uint8_t stateEntry; // 1 when entering new state
 } FSM_t;
 
-FSM_t fsm = { .currentState = INIT, .nextState = INIT, .eventFlags = 0 };
-SensorData sendData;
+typedef struct {
+    uint8_t guiCommsOk;
+    uint8_t sensorsOk;
+    uint8_t brakesClosed;
+    uint8_t tiltOk; // roll, pitch
+    uint8_t pneumaticsOk;
+    uint8_t batteryOk;
+
+    uint8_t allOk;
+} PreRunStatus;
+
+FSM_t fsm = {
+		.currentState = INIT,
+		.previousState = HALT,
+		.stateEntry = 1
+};
+
+volatile uint8_t guiCommand = 0;
+SensorData sensorData;
+PreRunStatus preRun;
 
 /* USER CODE END 0 */
 
@@ -247,6 +263,9 @@ int main(void)
   /* creation of INATask */
   INATaskHandle = osThreadNew(StartINATask, NULL, &INATask_attributes);
 
+  /* creation of FSMTask */
+  FSMTaskHandle = osThreadNew(StartFSMTask, NULL, &FSMTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -274,9 +293,6 @@ int main(void)
     Error_Handler();
   }
 
-
-  SensorData g_sensorData;
-
   /* Start scheduler */
   osKernelStart();
 
@@ -295,25 +311,119 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+void blink_yellow(void)
+{
+    static uint32_t lastToggle = 0;
+    static uint8_t ledOn = 0;
+
+    if (osKernelGetTickCount() - lastToggle > 500)
+    {
+        lastToggle = osKernelGetTickCount();
+        ledOn = !ledOn;
+
+        if (ledOn)
+            WS2812_SetAll(128, 128, 0);
+        else
+            WS2812_SetAll(0, 0, 0);
+
+        WS2812_Start();
+    }
+}
+
+void blink_red(void)
+{
+    static uint32_t lastToggle = 0;
+    static uint8_t ledOn = 0;
+
+    if (osKernelGetTickCount() - lastToggle > 500)
+    {
+        lastToggle = osKernelGetTickCount();
+        ledOn = !ledOn;
+
+        if (ledOn)
+            WS2812_SetAll(180, 0, 0);
+        else
+            WS2812_SetAll(0, 0, 0);
+
+        WS2812_Start();
+    }
+}
+
+
+void run_pre_run_checklist(SensorData *data)
+{
+	// testing purposes lolz
+	preRun.sensorsOk = 1;
+	preRun.brakesClosed = 1;
+	preRun.tiltOk = 1;
+	preRun.pneumaticsOk = 1;
+	preRun.batteryOk = 1;
+
+
+    // GUI comms
+
+    // sensors initialized -- can be read
+
+    // brakes closed
+
+    // tilt range check -- roll, pitch
+
+    // pneumatics pressure
+
+    // battery safe -- within V, I, T range
+
+	preRun.allOk = (
+		preRun.sensorsOk &&
+		preRun.brakesClosed &&
+		preRun.tiltOk &&
+		preRun.pneumaticsOk &&
+		preRun.batteryOk
+	);
+}
+
 
 void init_actions(SensorData *data) {
 	// INIT actions
-    data->lidar_dist = 0;
-    data->roll = 0;
-    data->pitch = 0;
-    for(int i=0; i<8; i++) data->thermistors[i] = 0;
+    printf("Entering INIT state\r\n");
 
-    // Turn off LEDs or set to INIT color
-    WS2812_SetAll(0, 0, 50);
-    WS2812_Start();
+    // TODO: brakes CLOSED
+//    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
 
-    printf("INIT actions completed\r\n");
+    // TODO: LV system ON
+//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
+
+    // calibrate sensors
+    MPU6050_Initialization(&hi2c3);
+    lidar_config(4);
+
+    // add esp to stm connection stuff
+
+    // send sensor data to GUI
+
+	blink_yellow();
+
+	run_pre_run_checklist(&sensorData);
+    printf("INIT complete -- waiting for GUI command\r\n");
 }
 
 void load_actions(SensorData *data) {
 	// LOAD actions
+    printf("Entering LOAD state\r\n");
 
-    printf("LOAD actions completed\r\n");
+    // brakes OPEN
+    //HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_RESET);
+
+    // LV stays ON
+//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
+//
+//    // make sure HV OFF
+//    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
+
+    // add esp to stm connection stuff
+
+    // send sensor data to GUI
+
+    printf("LOAD state ready\r\n");
 }
 
 void precharge_actions(SensorData *data) {
@@ -328,87 +438,59 @@ void start_actions(SensorData *data) {
     printf("START actions completed\r\n");
 }
 
-void stop_actions(SensorData *data) {
-	// STOP actions
-
-    printf("STOP actions completed\r\n");
-}
-
-void fault_actions(SensorData *data) {
-	// FAULT actions
-
-    printf("FAULT actions completed\r\n");
-}
-
-void halt_actions(SensorData *data) {
-	// HALT actions
-
-    printf("HALT actions completed\r\n");
-}
-
 
 void StartFSMTask(void *argument) {
-	unint32_t flags = 0;
 
 	for (;;) {
-		// check for manual override first
-		if (flags & EVT_USER_INIT)	fsm.currentState = INIT;
-		else if (flags & EVT_USER_LOAD)  fsm.currentState = LOAD;
-		else if (flags & EVT_USER_PRECHARGE) fsm.currentState = PRECHARGE;
-		else if (flags & EVT_USER_START) fsm.currentState = START;
-		else if (flags & EVT_USER_STOP)  fsm.currentState = STOP;
-		else if (flags & EVT_USER_FAULT) fsm.currentState = FAULT;
 
+		run_pre_run_checklist(&sensorData);
 
 		switch(fsm.currentState) {
 		case INIT:
-			init_actions(&sensorData);
-			if(fsm.eventFlags & EVT_LOAD_COMPLETE) {
-				printf("INIT -> LOAD\n");
-				fsm.nextState = LOAD;
-				fsm.eventFlags &= ~EVT_LOAD_COMPLETE;
+			if (fsm.stateEntry) {
+				init_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+			guiCommand = CMD_LOAD; // just to test
+
+			// manual GUI trigger
+			if(preRun.allOk && guiCommand == CMD_LOAD) {
+				guiCommand = CMD_NONE;
+				fsm.previousState = fsm.currentState;
+				fsm.currentState = LOAD;
+				fsm.stateEntry = 1;
 			}
 			break;
 		case LOAD:
-			load_actions(&sensorData);
-			if(fsm.eventFlags & EVT_PRECHARGE_COMPLETE) {
-				printf("LOAD -> PRECHARGE\n");
-				fsm.nextState = PRECHARGE;
-				fsm.eventFlags &= ~EVT_PRECHARGE_COMPLETE;
+			if (fsm.stateEntry) {
+				load_actions(&sensorData);
+				fsm.stateEntry = 0;
 			}
-			break;
-		case PRECHARGE:
-			precharge_actions(&sensorData);
-			if(flags & EVT_START_COMPLETE) {
-				printf("PRECHARGE --> START\n");
-				fsm.currentState = START;
+			blink_yellow();
+			run_pre_run_checklist(&sensorData);
+
+			// manual GUI trigger
+			if(preRun.allOk && guiCommand == CMD_PRECHARGE) {
+				guiCommand = CMD_NONE;
+				fsm.previousState = fsm.currentState;
+				fsm.currentState = PRECHARGE;
+				fsm.stateEntry = 1;
 			}
-		case START:
-			start_actions(&sensorData);
-			if(flags & EVT_STOP_COMPLETE) {
-				printf("START --> STOP\n");
-				fsm.currentState = START;
-			}
-			break;
-		case STOP:
-			stop_actions(&sensorData);
-			if(flags & EVT_FAULT_COMPLETE) {
-				printf("STOP --> FAULT\n");
-				fsm.currentState = START;
-			}
-			break;
-		case FAULT:
-			fault_actions(&sensorData);
-			fsm.currentState = START;
-			break;
-		case HALT:
-			halt_actions(&sensorData);
-			break;
+//		case PRECHARGE:
+//			precharge_actions(&sensorData);
+//			printf("PRECHARGE --> START\n");
+//			fsm.currentState = START;
+//			break;
+//		case START:
+//			start_actions(&sensorData);
+//			printf("START --> STOP\n");
+//			fsm.currentState = START;
+//			break;
 		}
-		flags = 0;
 		osDelay(50); // non-blocking
 	}
 }
+
 
 /**
   * @brief System Clock Configuration
