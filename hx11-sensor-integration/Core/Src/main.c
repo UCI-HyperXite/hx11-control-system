@@ -132,6 +132,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 #define CMD_NONE 0
 #define CMD_LOAD 1
 #define CMD_PRECHARGE 2
+#define CMD_STOP 3
 
 typedef struct {
 	uint32_t lidar_dist; //LiDAR
@@ -170,6 +171,7 @@ typedef struct {
     uint8_t guiCommsOk;
     uint8_t sensorsOk;
     uint8_t brakesClosed;
+    uint8_t ledsOk;
     uint8_t tiltOk; // roll, pitch
     uint8_t pneumaticsOk;
     uint8_t batteryOk;
@@ -186,6 +188,11 @@ FSM_t fsm = {
 volatile uint8_t guiCommand = 0;
 SensorData sensorData;
 PreRunStatus preRun;
+
+#define THERMISTOR_COUNT 8
+uint16_t rawValues[THERMISTOR_COUNT];
+INA219_t ina219_left;
+INA219_t ina219_right;
 
 /* USER CODE END 0 */
 
@@ -349,101 +356,210 @@ void blink_red(void)
     }
 }
 
+void init_sensors(void) {
+	// LIDAR
+	printf("LIDAR initializing...\r\n");
+	lidar_config(4);
+	printf("Finished LIDAR initialization.\r\n");
 
-void run_pre_run_checklist(SensorData *data)
+	// MPU
+	printf("MPU initializing...\r\n");
+	MPU6050_Initialization(&hi2c3);
+	printf("Finished MPU initialization.\r\n");
+
+	// THERMISTORS
+	printf("THERMS initializing...\r\n");
+	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	printf("Finished THERMS initialization.\r\n");
+
+	// LED
+	printf("LED initializing...\r\n");
+	WS2812_Init(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+	printf("Finished LED initialization.\r\n");
+
+	// INA
+	printf("INAs initializing...\r\n");
+    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
+	    Error_Handler();
+    }
+
+    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
+	    Error_Handler();
+    }
+	printf("Finished INAs initialization.\r\n");
+	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
+}
+
+void pre_run_checklist(SensorData *data)
 {
 	// testing purposes lolz
-	preRun.sensorsOk = 1;
-	preRun.brakesClosed = 1;
-	preRun.tiltOk = 1;
-	preRun.pneumaticsOk = 1;
-	preRun.batteryOk = 1;
+//	preRun.sensorsOk = 1;
+//	preRun.brakesClosed = 1;
+//	preRun.tiltOk = 1;
+//	preRun.pneumaticsOk = 1;
+//	preRun.batteryOk = 1;
 
 
-    // GUI comms
+    // TODO: GUI comms check
 
     // sensors initialized -- can be read
+	init_sensors();
+	preRun.sensorsOk = 1;
 
-    // brakes closed
+    // TODO: brakes closed
+
+	// LEDs turned on
+	WS2812_SetAll(128, 0, 64);
+	WS2812_Start();
+	preRun.ledsOk = 1;
 
     // tilt range check -- roll, pitch
+		// TODO: change bounds vals and error ping
+	if (data->roll >= 23.34 || data->pitch >= 23.34) {
+		printf("ERROR");
+	}
+	preRun.tiltOk = 1;
 
-    // pneumatics pressure
+    // TODO: pneumatics pressure
 
-    // battery safe -- within V, I, T range
+    // TODO: battery safe -- within V, I, T range
 
 	preRun.allOk = (
 		preRun.sensorsOk &&
 		preRun.brakesClosed &&
+		preRun.ledsOk &&
 		preRun.tiltOk &&
 		preRun.pneumaticsOk &&
 		preRun.batteryOk
 	);
 }
 
+bool fault_conditions(SensorData *data) {
+	// dynamics
+	if (data->roll >= 23.34 || data->pitch >= 23.34) return 0;
+
+	// TODO: braking (pneumatics)
+
+	// LIM
+	for (int i = 0; i < THERMISTOR_COUNT; i++) {
+		if (data->thermistors[i] >= 80) return 0;
+	}
+
+	// TODO: battery
+
+	// TODO: powers
+
+	// TODO: check comms signal
+
+	// LiDAR check
+	if (data->lidar_dist > 114) return 0;
+	return 1;
+}
 
 void init_actions(SensorData *data) {
-	// INIT actions
     printf("Entering INIT state\r\n");
 
     // TODO: brakes CLOSED
 //    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
 
-    // TODO: LV system ON
+    // TODO: establish GUI comms again
+
+    // TODO: LV system ON -- calibrate sensors??? what does this mean
 //    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
 
-    // calibrate sensors
-    MPU6050_Initialization(&hi2c3);
-    lidar_config(4);
+    // TODO: send sensor data to GUI
 
-    // add esp to stm connection stuff
 
-    // send sensor data to GUI
-
+	pre_run_checklist(&sensorData);
 	blink_yellow();
-
-	run_pre_run_checklist(&sensorData);
-    printf("INIT complete -- waiting for GUI command\r\n");
+    printf("INIT complete -- waiting for transition\r\n");
 }
 
 void load_actions(SensorData *data) {
-	// LOAD actions
     printf("Entering LOAD state\r\n");
 
-    // brakes OPEN
+    // TODO: brakes OPEN
     //HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_RESET);
 
-    // LV stays ON
+    // TODO: LV stays ON
 //    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-//
-//    // make sure HV OFF
+
+    // TODO: HV OFF
 //    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
 
-    // add esp to stm connection stuff
+    // TODO: send sensor data to GUI
 
-    // send sensor data to GUI
-
-    printf("LOAD state ready\r\n");
+	blink_yellow();
+    printf("LOAD complete -- waiting for transition\r\n");
 }
 
 void precharge_actions(SensorData *data) {
-	// PRECHARGE actions
+	// TODO: brakes open
 
-    printf("PRECHARGE actions completed\r\n");
+	// TODO: turn on HV sequence
+
+	// TODO: send sensor data to GUI
+
+	blink_yellow();
+	printf("PRECHARGE complete -- waiting for transition\r\n");
 }
 
 void start_actions(SensorData *data) {
-	// START actions
+	//	TODO: OpenBrakes();
+	//	TODO: StartVFD_LIM();
+	//	TODO: SendSensorDataToGUI(data);
 
-    printf("START actions completed\r\n");
+	// solid green
+	WS2812_SetAll(0, 180, 0);
+	WS2812_Start();
+	printf("START complete -- waiting for transition\r\n");
 }
 
+
+void stop_actions(SensorData *data) {
+	//	TODO: CloseBrakes();
+	//	TODO: SetHVPower(OFF);
+	//	TODO: SendSensorDataToGUI(data);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("STOP complete -- waiting for transition\r\n");
+}
+
+void fault_actions(SensorData *data) {
+	// TODO: CloseBrakes();
+	// TODO: EmergencyRelayCutoff();
+	// TODO: StoreFaultInfo(data);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("FAULT complete -- waiting for transition\r\n");
+}
+
+void halt_actions(SensorData *data) {
+	// TODO: CloseBrakes();
+	// TODO: SaveToOnboardMemory(data);
+	// TODO: SetHVPower(OFF);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("START complete -- waiting for transition\r\n");
+}
 
 void StartFSMTask(void *argument) {
 
 	for (;;) {
 
-		run_pre_run_checklist(&sensorData);
+		//run_pre_run_checklist(&sensorData);
+		bool auto_trigger = fault_conditions(&sensorData);
 
 		switch(fsm.currentState) {
 		case INIT:
@@ -451,7 +567,7 @@ void StartFSMTask(void *argument) {
 				init_actions(&sensorData);
 				fsm.stateEntry = 0;
 			}
-			guiCommand = CMD_LOAD; // just to test
+			//guiCommand = CMD_LOAD; // just to test
 
 			// manual GUI trigger
 			if(preRun.allOk && guiCommand == CMD_LOAD) {
@@ -466,26 +582,81 @@ void StartFSMTask(void *argument) {
 				load_actions(&sensorData);
 				fsm.stateEntry = 0;
 			}
-			blink_yellow();
-			run_pre_run_checklist(&sensorData);
 
-			// manual GUI trigger
-			if(preRun.allOk && guiCommand == CMD_PRECHARGE) {
+			// automatic trigger
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			} else if(preRun.allOk && guiCommand == CMD_PRECHARGE) { // manual GUI trigger
 				guiCommand = CMD_NONE;
-				fsm.previousState = fsm.currentState;
 				fsm.currentState = PRECHARGE;
-				fsm.stateEntry = 1;
+			} else {
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
 			}
-//		case PRECHARGE:
-//			precharge_actions(&sensorData);
-//			printf("PRECHARGE --> START\n");
-//			fsm.currentState = START;
-//			break;
-//		case START:
-//			start_actions(&sensorData);
-//			printf("START --> STOP\n");
-//			fsm.currentState = START;
-//			break;
+			fsm.stateEntry = 1;
+			break;
+		case PRECHARGE:
+			if (fsm.stateEntry) {
+				precharge_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			}
+			// TODO: automatic trigger -- if voltage/current stabilize
+//			else if (voltage_current) {
+//				fsm.currentState = START;
+//			}
+			else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
+			}
+			fsm.stateEntry = 1;
+			break;
+		case START:
+			if (fsm.stateEntry) {
+				start_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			} else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
+			}
+			fsm.stateEntry = 1;
+			break;
+		case FAULT:
+			if (fsm.stateEntry) {
+				fault_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
+		case HALT:
+			if (fsm.stateEntry) {
+				halt_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
+		case STOP:
+			if (fsm.stateEntry) {
+				stop_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
 		}
 		osDelay(50); // non-blocking
 	}
