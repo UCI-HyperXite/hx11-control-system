@@ -13,9 +13,9 @@ export function MiddleRow({ telemetry }) {
 	return (
 		<div style={middleRowStyle}>
 			<Card
-				title="Pressure" style={{ height: 270, width: 240, padding: 13, flexShrink: 0 }}>
+				title="Pressure" style={{ height: 270, width: 240, padding: 20, flexShrink: 0, paddingTop: 10}}>
 				<div className="INA219Table">
-					<table style = {{fontSize: 12}}>
+					<table style = {{marginTop: -8, fontSize: 13.5, fontWeight: "bold"}}>
 						<tr>
 							<th style={{ width: 100 }}>INA219</th>
 							<th style={{ width: 75 }}>Min</th>
@@ -60,45 +60,39 @@ export function MiddleRow({ telemetry }) {
 			<Card
 				title="LIM Temperature"
 				style={{
-			        height: 270, width: 260,flexShrink: 0}}>
+			        height: 270, width: 260,flexShrink: 0, paddingTop: 10}}>
 				<div>
 					<div className="TempTable">
-                        <table style={{ fontSize: 13 }}>
+                        <table style={{marginTop: -7, marginLeft: -10, fontSize: 16, fontWeight: "bold", lineHeight: 2.5 }}>
                             <tr>
-                                <th style={{ width: 60 }}>Therm #</th>
-                                <th style={{ width: 80 }}>Temp</th>
+                                <th style={{fontSize: 11, width: 30 }}>Therm#</th>
+                                <th style={{fontSize: 13, width: 80 }}>Temp</th>
+                                <th style={{fontSize: 11, width: 30 }}>Therm#</th>
+                                <th style={{fontSize: 13, width: 80 }}>Temp</th>
                             </tr>
                             <tr>
                                 <td>1 </td>
                                 <td>{telemetry.therm1} °C</td>
-                            </tr>
-                            <tr>
-                                <td>2 </td>
-                                <td>{telemetry.therm2} °C</td>
-                            </tr>
-                            <tr>
-                                <td>3 </td>
-                                <td>{telemetry.therm3} °C</td>
-                            </tr>
-                            <tr>
-                                <td>4 </td>
-                                <td>{telemetry.therm4} °C</td>
-                            </tr>
-                            <tr>
                                 <td>5 </td>
                                 <td>{telemetry.therm5} °C</td>
                             </tr>
                             <tr>
+                                <td>2 </td>
+                                <td>{telemetry.therm2} °C</td>
                                 <td>6 </td>
                                 <td>{telemetry.therm6} °C</td>
                             </tr>
                             <tr>
+                                <td>3 </td>
+                                <td>{telemetry.therm3} °C</td>
                                 <td>7 </td>
                                 <td>{telemetry.therm7} °C</td>
                             </tr>
                             <tr>
-                                <td>8 </td>
-                                <td>{telemetry.therm8} °C</td>
+                                <td>4 </td>
+                                <td>{telemetry.therm4} °C</td>
+                                 <td>8 </td>
+                                 <td>{telemetry.therm8} °C</td>
                             </tr>
 
                         </table>

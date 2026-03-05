@@ -1,5 +1,6 @@
 import React from "react";
 import { Dot } from "./Dot";
+import HX_logo from "../assets/HX_logo.jpg";
 
 export function Header({ podStates }) {
 	const headerStyle = {
@@ -19,7 +20,8 @@ export function Header({ podStates }) {
 	};
 
 	return (
-		<div style={headerStyle}>
+		<div className="header">
+			<div style={headerStyle}>
 			<div style={titleStyle}>
 				<div
 					style={{
@@ -34,7 +36,7 @@ export function Header({ podStates }) {
 						fontWeight: 700,
 					}}
 				>
-					HX
+					<img src={HX_logo} alt="HX Logo" style = {{width: 50, height: 30, objectFit: "contain"}}/>
 				</div>
 				<div>
 					<div style={{ fontSize: 28, fontWeight: 700 }}>HyperXite 11</div>
@@ -69,17 +71,20 @@ export function Header({ podStates }) {
 								alignItems: "center",
 							}}
 						>
-							<Dot color={podStates.INITSTATE} />
-							<Dot color={podStates.LOADSTATE} />
-							<Dot color={podStates.PRECHARGESTATE} />
-							<Dot color={podStates.STARTSTATE} />
-							<Dot color={podStates.STOPSTATE} />
-							<Dot color={podStates.FAULTSTATE} />
-							<Dot color={podStates.HALTSTATE} />
+							<Dot style={{ backgroundColor: "#FC95AD", border: "#F000FF" }} />
+							<Dot style={{ backgroundColor: "#3DADFF" }} />
+							<Dot style={{ backgroundColor: "#FFCD29" }} />
+							<Dot style={{ backgroundColor: "#359D43" }} />
+							<Dot style={{ backgroundColor: "#F24822" }} />
+							<Dot style={{ backgroundColor: "#1E1E1E" }} />
+							<Dot style={{ backgroundColor: "#FFA629" }} />
 						</div>
 					</div>
 				</div>
 			</div>
+			</div>
+			
 		</div>
+		
 	);
 }

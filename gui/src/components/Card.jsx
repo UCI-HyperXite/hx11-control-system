@@ -13,7 +13,7 @@ export function Card({ title, children, style = {} }) {
 			}}
 		>
 			{title && (
-				<div style={{ fontSize: 14, color: "#2b2b2b", marginBottom: 8, fontWeight: 700, textAlign: "left" }}>
+				<div style={{ fontSize: 16, color: "#2b2b2b", marginBottom: 8, fontWeight: 700, textAlign: "left" }}>
 					{title}
 				</div>
 			)}

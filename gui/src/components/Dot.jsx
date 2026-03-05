@@ -1,14 +1,16 @@
 import React from "react";
 
-export function Dot({ color = "#ff5f56", size = 30 }) {
+export function Dot({ size = 30, style }) {
 	return (
 		<div
 			style={{
 				width: size,
 				height: size,
 				borderRadius: "50%",
-				background: color,
+				backgroundColor: "#ff5f56",
+				border: "#F000FF",
 				boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+				...style,
 			}}
 		/>
 	);

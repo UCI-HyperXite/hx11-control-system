@@ -13,27 +13,34 @@ export function TopRow({ telemetry }) {
 		<div style={topRowStyle}>
 			{/* left-top Pressure */}
 			<Card title=""
-				style={{height: 150, width: 180, flexShrink: 0}}
+				style={{height: 150, width: 180, flexShrink: 0, paddingTop: 11, fontWeight: "bold"}}
 			>
-				<div style={{ lineHeight: 1.5, display: "flex" }}>Time: {telemetry.time}</div>
-				<div style={{ lineHeight: 1.5, display: "flex" }}>Distance: {telemetry.distance} cm</div>
-				<div style={{ lineHeight: 1.5, display: "flex" }}>Position: {telemetry.position}</div>
-				<div style={{ lineHeight: 1.5, display: "flex" }}>Speed: {telemetry.speed}</div>
-
-
+				<div style={{ lineHeight: 2, display: "flex" }}>Time: {telemetry.time}</div>
+				<div style={{ lineHeight: 2, display: "flex" }}>Distance: {telemetry.distance} cm</div>
+				<div style={{ lineHeight: 2, display: "flex" }}>Position: {telemetry.position}</div>
+				<div style={{ lineHeight: 2, display: "flex" }}>Speed: {telemetry.speed}</div>
 			</Card>
 
 			{/* top-center Rotation */}
-			<Card title="Rotation" style={{ height: 150, width: 320, flexShrink: 0 }}>
-				<div style={{ fontSize: 15, display: "flex", textAlign: "left" }}>
-					Accel: <br />
-					X: {telemetry.accelerationx} Y: {telemetry.accelerationy} Z: {telemetry.accelerationz} m/s²
+			<Card title="Rotation" style={{ height: 150, width: 320, flexShrink: 0, fontWeight: "bold", paddingTop: 10, fontSize: 16}}>
+				<div style={{marginTop: -8, display: "flex", textAlign: "left"}}>
+					<div>
+						<div>Accel:</div>
+						<div style={{ marginLeft: 15, display: "flex", gap:20}}>
+							<div>X: {telemetry.accelerationx}</div>
+							<div>Y: {telemetry.accelerationy}</div>
+							<div>Z: {telemetry.accelerationz} m/s²</div>
+						</div>
+					</div>
 				</div>
-				<div style={{ fontSize: 15, display: "flex", textAlign: "left"}}>
-					Gyro: <br />
-					X: {telemetry.accelerationx} Y: {telemetry.accelerationy} Z: {telemetry.accelerationz} rad/s
+				<div style={{marginTop: 8, textAlign: "left"}}>
+						<div>Gyro: </div>
+						<div style={{ marginLeft: 15, display: "flex", gap:20}}>
+							<div>X: {telemetry.gyrox}</div>
+							<div>Y: {telemetry.gyroy}</div>
+							<div> Z: {telemetry.gyroz} rad/s</div>
+						</div>
 				</div>
-				
 			</Card>
 
 			{/* right-top Other Info */}
@@ -49,7 +56,10 @@ export function TopRow({ telemetry }) {
 						borderRadius: 12,
 						flexShrink: 0,
 						paddingLeft: 15,
-						paddingRight: 15
+						paddingRight: 15,
+						fontWeight: "bold",
+						fontSize: 16.5,
+						lineHeight: 2.5,
 					}}
 				>
 					
@@ -96,7 +106,7 @@ export function TopRow({ telemetry }) {
 								<td></td>
                                 <td>{telemetry.battSoC}</td>
 								<td></td>
-								<td></td>
+								<td>%</td>
                             </tr>
 							<tr>
                                 <td>Batt Temp:</td>
@@ -115,16 +125,6 @@ export function TopRow({ telemetry }) {
 
                         </table>
                     </div>
-					{/*
-					<div style={{ paddingLeft: 20, lineHeight: 3, display: "flex" }}>
-						Batt Current: {telemetry.battCurrent}
-					</div>
-					<div style={{ paddingLeft: 20, lineHeight: 1, display: "flex" }}>
-						Batt State of Charge: {telemetry.battSoC}
-					</div>
-					<div style={{ paddingLeft: 20, lineHeight: 3, display: "flex" }}>
-						IMD Status: {telemetry.imdStatus}
-					</div> */}
 				</div>
 			</Card>
 		</div>

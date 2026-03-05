@@ -1,101 +1,136 @@
 import React from "react";
-import { StopOctagon } from "./StopOctagon";
+import { Card } from "./Card";
 
 export function BottomRow() {
-	const [hoveredButton, setHoveredButton] = React.useState(null);
-
 	const bottomRowStyle = {
 		display: "flex",
 		gap: 18,
-		marginBottom: 18,
+		marginTop: 5,
+		marginBottom: 0,
 	};
-
-	const getButtonStyle = (buttonName, baseColor) => ({
-		background: hoveredButton === buttonName ? darkenColor(baseColor) : baseColor,
-		border: "none",
-		padding: "12px 36px",
-		borderRadius: 22,
-		fontWeight: 700,
-		cursor: "pointer",
-		transition: "background-color 0.2s ease",
-	});
-
-	const darkenColor = (color) => {
-		// Convert hex to RGB, darken it
-		const num = parseInt(color.replace("#", ""), 16);
-		const r = Math.max(0, (num >> 16) - 30);
-		const g = Math.max(0, ((num >> 8) & 255) - 30);
-		const b = Math.max(0, (num & 255) - 30);
-		return `rgb(${r}, ${g}, ${b})`;
-	};
-    
 
 	return (
 		<div style={bottomRowStyle}>
 			{/* bottom-left empty spacer */}
-			<div style={{ marginTop: 100, height: 10,width: 200, flexShrink: 0 }}></div>
-
-			{/* bottom-center controls */}
-			<div style={{
-					flex: 1,
-					display: "flex",
-					gap: 20,
-					alignItems: "center",
-					justifyContent: "center",
-				}}>
-                <button
-					style={getButtonStyle("init", "#FC95AD")}
-					onMouseEnter={() => setHoveredButton("init")}
-					onMouseLeave={() => setHoveredButton(null)}
-				>
-					Init
-				</button>
-
-				<button
-					style={getButtonStyle("load", "#76BBEF")}
-					onMouseEnter={() => setHoveredButton("load")}
-					onMouseLeave={() => setHoveredButton(null)}
-				>
-					Load
-				</button>
-
-				<button
-					style={{
-						...getButtonStyle("run", "#1E6A28"),
+			{/* <div style={{ marginTop: 100, height: 10,width: 200, flexShrink: 0 }}>
+			</div> */}
+			<Card
+				title="Console"
+				style={{ height: 337, width: 300, flexShrink: 0}}
+			>
+				<div style={{
+						height: 270,
+						background: "#2f2740",
+						color: "#f0e6f2",
+						borderRadius: 12,
 						display: "flex",
-						gap: 10,
+						flexDirection: "column",
+						justifyContent: "center",
 						alignItems: "center",
-						cursor: "pointer",
+						gap: 20,
+						position: "relative"
 					}}
-					onMouseEnter={() => setHoveredButton("run")}
-					onMouseLeave={() => setHoveredButton(null)}
 				>
-                
 					<div
 						style={{
-							width: 0,
-							height: 0,
-							borderLeft: "10px solid #ffffff",
-							borderTop: "7px solid transparent",
-							borderBottom: "7px solid transparent",
+							position: "absolute",
+							top: 15,
+							left: 15
+						}}
+					>
+						&lt;&lt;
+					</div>
+					<div // the lines in the Console segment
+						style={{
+							width: "95%",
+							height: 2,
+							background: "#e1b9e9"
 						}}
 					/>
-					Run
-				</button>
-			</div>
+					<div
+						style={{
+							width: "95%",
+							height: 2,
+							background: "#e1b9e9"
+						}}
+					/>
+					<div
+						style={{
+							width: "95%",
+							height: 2,
+							background: "#e1b9e9"
+						}}
+					/>
+					<div
+						style={{
+							width: "95%",
+							height: 2,
+							background: "#e1b9e9"
+						}}
+					/>
 
-			{/* bottom-right STOP */}
-			<div
+				</div>
+			</Card>
+			<Card
+				title="HV Battery"
 				style={{
-					width: 360,
+					height: 335,
+					width: 720,
 					flexShrink: 0,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "center",
+					padding: 16,
 				}}
 			>
-				<StopOctagon onClick={() => alert("STOP pressed")} />
-			</div>
+				<div>
+					<div className="HVBatteryTable">
+						<table>
+							<tr style={{width: 60, fontSize: 12 }}>
+								<th>Pack</th>
+								<th>Cell 0</th>
+								<th>Cell 1</th>
+								<th>Cell 2</th>
+								<th>Cell 3</th>
+								<th>Cell 4</th>
+								<th>Cell 5</th>
+								<th>Cell 6</th>
+								<th>Cell 7</th>
+								<th>Cell 8</th>
+								<th>Cell 9</th>
+								<th>Cell 10</th>
+								<th>Cell 11</th>
+								<th>Cell 12</th>
+								<th>   Sum  </th>
+							</tr>
+		
+							{Array.from({ length: 9 }).map((_, rowIndex) => (
+							<tr key={rowIndex}>
+								{Array.from({ length: 15 }).map((_, colIndex) => {
+
+								const isHighlighted = rowIndex === 2 && colIndex === 5;
+								const isFirstColumn = colIndex === 0;
+								const isFirstRow = rowIndex === 0 && colIndex !== 0;
+
+								return (
+									<td
+									key={colIndex}
+									style={{
+										padding: "1px 11.5px",
+										// backgroundColor: isHighlighted ? "red" : isFirstRow ? "green" : undefined,
+										backgroundColor: isFirstColumn ? undefined: "white",
+										fontWeight: isFirstColumn ? "bold" : "normal"
+									}}
+									>
+									{isFirstColumn ? rowIndex + 1 : "0.0"}
+									</td>
+								);
+								})}
+							</tr>
+							))}
+							
+						</table>
+					</div>
+					
+				</div>
+			</Card>
 		</div>
 	);
 }
