@@ -1,7 +1,7 @@
 import React from "react";
 import { Card } from "./Card";
 
-export function BottomRow() {
+export function BottomRow({consoleLogs = [] }) {
 	const bottomRowStyle = {
 		display: "flex",
 		gap: 18,
@@ -14,10 +14,7 @@ export function BottomRow() {
 			{/* bottom-left empty spacer */}
 			{/* <div style={{ marginTop: 100, height: 10,width: 200, flexShrink: 0 }}>
 			</div> */}
-			<Card
-				title="Console"
-				style={{ height: 337, width: 300, flexShrink: 0}}
-			>
+			<Card title="Console" style={{ height: 337, width: 300, flexShrink: 0}}>
 				<div style={{
 						height: 270,
 						background: "#2f2740",
@@ -25,10 +22,11 @@ export function BottomRow() {
 						borderRadius: 12,
 						display: "flex",
 						flexDirection: "column",
+						position: "relative",
+						overflow: "hidden",
 						justifyContent: "center",
-						alignItems: "center",
+                        alignItems: "center",
 						gap: 20,
-						position: "relative"
 					}}
 				>
 					<div
@@ -40,37 +38,75 @@ export function BottomRow() {
 					>
 						&lt;&lt;
 					</div>
-					<div // the lines in the Console segment
-						style={{
-							width: "95%",
-							height: 2,
-							background: "#e1b9e9"
-						}}
-					/>
-					<div
-						style={{
-							width: "95%",
-							height: 2,
-							background: "#e1b9e9"
-						}}
-					/>
-					<div
-						style={{
-							width: "95%",
-							height: 2,
-							background: "#e1b9e9"
-						}}
-					/>
-					<div
-						style={{
-							width: "95%",
-							height: 2,
-							background: "#e1b9e9"
-						}}
-					/>
 
+				<div
+					style={{
+					marginTop: 36,
+					flex: 1,
+					overflowY: "auto",
+					padding: "0 12px 8px 12px",
+					display: "flex",
+					flexDirection: "column",
+					gap: 4,
+           		 }}>
+				{consoleLogs.length === 0 ? (
+
+				<div style={{ color: "#a080b0", fontSize: 11, fontStyle: "italic" }}>
+					Waiting for connection...
 				</div>
+
+            	) : (
+              	consoleLogs.map((log, i) => (
+                <div
+                  key={i}
+                  style={{
+                    fontSize: 11,
+                    fontFamily: "monospace",
+                    color: log.includes("✓") ? "#7effa0"
+                         : log.includes("failed") || log.includes("error") ? "#ff8080"
+                         : "#f0e6f2",
+                    borderBottom: "1px solid #3d3050",
+                    paddingBottom: 3,
+                  }}
+                >
+                  {log}
+                </div>
+              ))
+            )}
+          </div>
+										
+			{/* <div // the lines in the Console segment
+				style={{
+					width: "95%",
+					height: 2,
+					background: "#e1b9e9"
+				}}
+			/>
+			<div
+				style={{
+					width: "95%",
+					height: 2,
+					background: "#e1b9e9"
+				}}
+			/>
+			<div
+				style={{
+					width: "95%",
+					height: 2,
+					background: "#e1b9e9"
+				}}
+			/>
+			<div
+				style={{
+					width: "95%",
+					height: 2,
+					background: "#e1b9e9"
+				}}
+			/> */}
+		</div>
+
 			</Card>
+
 			<Card
 				title="HV Battery"
 				style={{

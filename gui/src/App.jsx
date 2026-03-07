@@ -6,6 +6,27 @@ import { MiddleRow } from "./components/MiddleRow";
 import { BottomRow } from "./components/BottomRow";
 import { Footer } from "./components/Footer";
 
+const podStateColors = {
+	INITSTATE:      "#FC95AD",
+	LOADSTATE:      "#3DADFF",
+	PRECHARGESTATE: "#FFCD29",
+	STARTSTATE:     "#359D43",
+	STOPSTATE:      "#F24822",
+	FAULTSTATE:     "#1E1E1E",
+	HALTSTATE:      "#FFA629",
+};
+
+const podStateMap = {
+	0: "INITSTATE",
+	1: "LOADSTATE",
+	2: "PRECHARGESTATE",
+	3: "STARTSTATE",
+	4: "STOPSTATE",
+	5: "FAULTSTATE",
+	6: "HALTSTATE",
+};
+
+
 export default function App() {
 	// State for telemetry data from API
 	const [telemetry, setTelemetry] = React.useState({
@@ -77,85 +98,148 @@ export default function App() {
 		HALTSTATE: "#FFA629"
 	});
 
-	// Fetch data from API
-	React.useEffect(() => {
-		const fetchData = async () => {
-			try {
-				const response = await fetch("YOUR_API_ENDPOINT_HERE");
-				const data = await response.json();
-				// Update state with API data
-				setTelemetry({
-					time: data.time || telemetry.time,
-					distance: data.distance || telemetry.distance,
-					position: data.position || telemetry.position,
-					speed: data.speed || telemetry.speed,
+	const [isConnected, setIsConnected] = React.useState(false);
+	const [consoleLogs, setConsoleLogs] = React.useState([]);
+  	const readerRef = React.useRef(null);
+  	const portRef = React.useRef(null);
+	const csvRowsRef = React.useRef([]); // CSV accumulator
 
-					accelerationx: data.accelerationx || telemetry.accelerationx,
-					accelerationy: data.accelerationy || telemetry.accelerationy,
-					accelerationz: data.accelerationz || telemetry.accelerationz,
+	function addLog(message) {
+		const timestamp = new Date().toLocaleTimeString();
+		setConsoleLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
+  	}
 
-					gyrox: data.gyrox || telemetry.gyrox,
-					gyroy: data.gyroy || telemetry.gyroy,
-					gyroz: data.gyroz || telemetry.gyroz,
+	function downloadCSV() {
+		const rows = csvRowsRef.current;
+		if (rows.length === 0) {
+			addLog("No data to download yet.");
+			return;
+		}
+		const headers = Object.keys(rows[0]).join(",");
+		const body = rows.map(r => Object.values(r).join(",")).join("\n");
+		const csv = `${headers}\n${body}`;
 
-					limVoltage: data.limVoltage || telemetry.limVoltage,
-          			limCurrent: data.limCurrent || telemetry.limCurrent,
-					battVoltage: data.battVoltage || telemetry.battVoltage,
-					battCurrent: data.battCurrent || telemetry.battCurrent,
-					battSoC: data.battSoC || telemetry.battSoC,
-          			battTemp: data.battTemp || telemetry.battTemp,
-					imdStatus: data.imdStatus || telemetry.imdStatus,
-					
-					vbus1: data.vbus1 || telemetry.vbus1,
-					vShunt1: data.vShunt1 || telemetry.vShunt1,
-					current1: data.current1 || telemetry.current1,
-					power1: data.power1 || telemetry.power1,
-					vbus2: data.vbus2 || telemetry.vbus2,
-					vShunt2: data.vShunt2 || telemetry.vShunt2,
-					current2: data.current2 || telemetry.current2,
-					power2: data.power2 || telemetry.power2,
+		const blob = new Blob([csv], { type: "text/csv" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `telemetry_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+		addLog(`Downloaded ${rows.length} rows as CSV ✓`);
+	}
 
-					therm1: data.therm1 || telemetry.therm1,
-					therm2: data.therm2 || telemetry.therm2,
-					therm3: data.therm3 || telemetry.therm3,
-					therm4: data.therm4 || telemetry.therm4,
-					therm5: data.therm5 || telemetry.therm5,
-					therm6: data.therm6 || telemetry.therm6,
-					therm7: data.therm7 || telemetry.therm7,
-					therm8: data.therm8 || telemetry.therm8,
-				});
+	async function connectSerial(){
+		try{
+			const port = await navigator.serial.requestPort();
+			await port.open({ baudRate: 115200 });
+			portRef.current = port;
+			setIsConnected(true);
+			console.log("Serial connected ✓");
+      		addLog("Serial connected ✓");
 
-				// Update POD STATE colors
-				if (data.podStates) {
-					setPodStates({
-						INITSTATE: data.podStates.INITSTATE || podStates.INITSTATE,
-						LOADSTATE: data.podStates.LOADSTATE || podStates.LOADSTATE,
-						PRECHARGESTATE: data.podStates.PRECHARGESTATE || podStates.PRECHARGESTATE,
-						STARTSTATE: data.podStates.STARTSTATE || podStates.STARTSTATE,
-						STOPSTATE: data.podStates.STOPSTATE || podStates.STOPSTATE,
-						FAULTSTATE: data.podStates.FAULTSTATE || podStates.FAULTSTATE,
-						HALTSTATE: data.podStates.HALTSTATE || podStates.HALTSTATE
-					});
+			const decoder = new TextDecoderStream();
+      		port.readable.pipeTo(decoder.writable);
+			const reader = decoder.readable.getReader();
+      		readerRef.current = reader;
+
+			let buffer = "";
+			while (true) {
+				const { value, done } = await reader.read();
+				if (done){
+					console.log("Serial disconnected");
+					addLog("Serial disconnected");
+					setIsConnected(false);
+					break;
 				}
-			} catch (error) {
-				console.error("Error fetching data:", error);
+
+        		buffer += value;
+				const lines = buffer.split("\n").map(l => l.trim());
+        		buffer = lines.pop();
+				
+				for (const line of lines) {
+         			try {
+						const data = JSON.parse(line.trim());
+						if (data.RSSI !== undefined) console.log("RSSI:", data.RSSI);
+
+						setTelemetry(prev => ({
+							...prev,
+							// time: data.time ?? prev.time,
+							distance: data.lidar_distance ?? prev.distance,
+							// position: data.position ?? prev.position,
+							// speed: data.speed ?? prev.speed,
+							// accelerationx: data.accelerationx ?? prev.accelerationx,
+							// accelerationy: data.accelerationy ?? prev.accelerationy,
+							// accelerationz: data.accelerationz ?? prev.accelerationz,
+							// gyrox: data.gyrox ?? prev.gyrox,
+							// gyroy: data.gyroy ?? prev.gyroy,
+							// gyroz: data.gyroz ?? prev.gyroz,
+							// limVoltage: data.limVoltage ?? prev.limVoltage,
+							// limCurrent: data.limCurrent ?? prev.limCurrent,
+							// battVoltage: data.battVoltage ?? prev.battVoltage,
+							// battCurrent: data.battCurrent ?? prev.battCurrent,
+							// battSoC: data.battSoC ?? prev.battSoC,
+							// battTemp: data.battTemp ?? prev.battTemp,
+							// imdStatus: data.imdStatus ?? prev.imdStatus,
+							// vbus1: data.vbus1 ?? prev.vbus1,
+							// vShunt1: data.vShunt1 ?? prev.vShunt1,
+							// current1: data.current1 ?? prev.current1,
+							// power1: data.power1 ?? prev.power1,
+							// vbus2: data.vbus2 ?? prev.vbus2,
+							// vShunt2: data.vShunt2 ?? prev.vShunt2,
+							// current2: data.current2 ?? prev.current2,
+							// power2: data.power2 ?? prev.power2,
+
+
+
+							// {"RSSI":0,"lidar_distance":0,"pod_state":1,"therms":[72.01,72.01,72.01,72.01,72.01,72.01,72.01,72.01]}
+							
+
+							therm1: data.therms?.[0]?.toFixed(2) ?? prev.therm1,
+							therm2: data.therms?.[1]?.toFixed(2) ?? prev.therm2,
+							therm3: data.therms?.[2]?.toFixed(2) ?? prev.therm3,
+							therm4: data.therms?.[3]?.toFixed(2) ?? prev.therm4,
+							// therm5: data.therms?.[4]?.toFixed(2) ?? prev.therm5,
+							// therm6: data.therms?.[5]?.toFixed(2) ?? prev.therm6,
+							// therm7: data.therms?.[6]?.toFixed(2) ?? prev.therm7,
+							// therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
+						}));
+
+
+						if (data.pod_state !== undefined) {
+							const activeState = podStateMap[data.pod_state];
+							if (activeState) {
+								setPodStates({
+									INITSTATE:      "#1E1E1E",
+									LOADSTATE:      "#1E1E1E",
+									PRECHARGESTATE: "#1E1E1E",
+									STARTSTATE:     "#1E1E1E",
+									STOPSTATE:      "#1E1E1E",
+									FAULTSTATE:     "#1E1E1E",
+									HALTSTATE:      "#1E1E1E",
+									[activeState]:  podStateColors[activeState],
+								});
+							}
+						}
+					
+					} catch (e) {
+						// Not valid JSON — could be a partial line or non-JSON message
+						console.warn("Could not parse line:", line);
+            			addLog(`Parse error: ${line.trim().slice(0, 40)}`);
+					}
+				}
 			}
-		};
-		// Fetch data immediately
-		fetchData();
-
-		// Optional: Set up interval to fetch data periodically (e.g., every second)
-		const interval = setInterval(fetchData, 100);
-
-		// Cleanup interval on component unmount
-		return () => clearInterval(interval);
-	}, []);
+		} catch (err) {
+			console.error("Serial connection failed ✗", err);
+			addLog(`Connection failed: ${err.message}`);
+			setIsConnected(false);
+		}
+	}
 
 	const containerStyle = {
 		minHeight: "90vh",
 		background: "#5d3b73",
 		padding: 0,
-		fontFamily: "'Courier New', Courier, monospace",
 		color: "#1f1f1f",
 		display: "flex",
 		flexDirection: "column",
@@ -168,17 +252,72 @@ export default function App() {
 		flexDirection: "column",
 	};
 
+	
+
 	return (
 		<div style={containerStyle}>
+			{/* <div style={{ padding: "10px 18px", background: "#3d2550", textAlign: "center", display: "flex", gap: 12, justifyContent: "center" }}>
+				{!isConnected ? (
+					<button
+						onClick={connectSerial}
+						style={{
+							padding: "8px 24px",
+							background: "#359D43",
+							color: "white",
+							border: "none",
+							borderRadius: 4,
+							cursor: "pointer",
+							fontWeight: "bold",
+							fontSize: 14
+						}}
+					>
+						Connect Serial
+					</button>
+				) : (
+					<button
+						onClick={downloadCSV}
+						style={{
+							padding: "8px 24px",
+							background: "#3DADFF",
+							color: "white",
+							border: "none",
+							borderRadius: 4,
+							cursor: "pointer",
+							fontWeight: "bold",
+							fontSize: 14
+						}}
+					>
+						Download CSV
+					</button>
+				)}
+			</div> */}
+			{!isConnected && (
+            <div style={{ padding: "10px 18px", background: "#3d2550", textAlign: "center" }}>
+                <button
+                    onClick={connectSerial}
+                    style={{
+                        padding: "8px 24px",
+                        background: "#359D43",
+                        color: "white",
+                        border: "none",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        fontSize: 14
+                    }}
+                >
+                    Connect Serial
+                </button>
+            </div>
+        	)}
 			<Header podStates={podStates} />
 			<div style={contentStyle}>
 				<TopRow telemetry={telemetry} />
 				<MiddleRow telemetry={telemetry} />
-				<BottomRow />
+				<BottomRow consoleLogs={consoleLogs}/>
         		<Footer/>
 			</div>
 		</div>
 	);
-  
 }
 

@@ -63,12 +63,12 @@ export function MiddleRow({ telemetry }) {
 			        height: 270, width: 260,flexShrink: 0, paddingTop: 10}}>
 				<div>
 					<div className="TempTable">
-                        <table style={{marginTop: -7, marginLeft: -10, fontSize: 16, fontWeight: "bold", lineHeight: 2.5 }}>
+                        <table style={{marginTop: -10, marginLeft: -10, fontSize: 12, fontWeight: "bold", lineHeight: 3.4 }}>
                             <tr>
-                                <th style={{fontSize: 11, width: 30 }}>Therm#</th>
-                                <th style={{fontSize: 13, width: 80 }}>Temp</th>
-                                <th style={{fontSize: 11, width: 30 }}>Therm#</th>
-                                <th style={{fontSize: 13, width: 80 }}>Temp</th>
+                                <th style={{fontSize: 11, width: 28 }}>Th#</th>
+                                <th style={{fontSize: 11, width: 80 }}>Temp</th>
+                                <th style={{fontSize: 11, width: 28 }}>Th#</th>
+                                <th style={{fontSize: 11, width: 80 }}>Temp</th>
                             </tr>
                             <tr>
                                 <td>1 </td>
