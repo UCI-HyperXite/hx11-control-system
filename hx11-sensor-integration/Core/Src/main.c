@@ -1,3 +1,21 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2026 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
@@ -49,47 +67,56 @@ I2C_HandleTypeDef hi2c4;
 TIM_HandleTypeDef htim1;
 DMA_HandleTypeDef hdma_tim1_ch1;
 
+UART_HandleTypeDef huart7;
+
 /* Definitions for lidarTask */
 osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
-  .stack_size = 762 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
 const osThreadAttr_t mpuTask_attributes = {
   .name = "mpuTask",
-  .stack_size = 762 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for thermistorsTask */
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 762 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
-};
-/* Definitions for LEDTask */
-osThreadId_t LEDTaskHandle;
-const osThreadAttr_t LEDTask_attributes = {
-  .name = "LEDTask",
-  .stack_size = 762 * 4,
-  .priority = (osPriority_t) osPriorityNormal2,
 };
 /* Definitions for INATask */
 osThreadId_t INATaskHandle;
 const osThreadAttr_t INATask_attributes = {
   .name = "INATask",
-  .stack_size = 762 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
-/* Definitions for FSMTask */
-osThreadId_t FSMTaskHandle;
-const osThreadAttr_t FSMTask_attributes = {
-  .name = "FSMTask",
-  .stack_size = 762 * 4,
+/* Definitions for telemetryTask */
+osThreadId_t telemetryTaskHandle;
+const osThreadAttr_t telemetryTask_attributes = {
+  .name = "telemetryTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for commandTask */
+osThreadId_t commandTaskHandle;
+const osThreadAttr_t commandTask_attributes = {
+  .name = "commandTask",
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
+};
+/* Definitions for fsmTask */
+osThreadId_t fsmTaskHandle;
+const osThreadAttr_t fsmTask_attributes = {
+  .name = "fsmTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
 uint32_t m_distance,object_distance;
@@ -108,11 +135,13 @@ static void MX_ADC1_Init(void);
 static void MX_I2C3_Init(void);
 static void MX_I2C4_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_UART7_Init(void);
 void StartLidarTask(void *argument);
 void StartMPUTask(void *argument);
 void StartThermistorsTask(void *argument);
-void StartLEDTask(void *argument);
 void StartINATask(void *argument);
+void StartTelemetryTask(void *argument);
+void StartCommandTask(void *argument);
 void StartFSMTask(void *argument);
 
 /* USER CODE BEGIN PFP */
@@ -129,25 +158,31 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 	}
 }
 
-#define CMD_NONE 0
-#define CMD_LOAD 1
-#define CMD_PRECHARGE 2
-#define CMD_STOP 3
+uint8_t rxBuffer[1];
+uint8_t newCommandFlag = 0;
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == UART7) {
+        newCommandFlag = 1;
+        HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+    }
+}
 
-typedef struct {
-	uint32_t lidar_dist; //LiDAR
+//#define CMD_NONE 0
+//#define CMD_OK 1
+//#define CMD_LOAD 2
+//#define CMD_PRECHARGE 3
+//#define CMD_STOP 4
 
-	float roll, pitch; //MPU
-
-	float thermistors[8]; //thermies
-
-	float pt_up, pt_down; //ina219, left and right brake
-
-	float lv_batt; //ina260
-
-	float hv_batt_temp, hv_batt; //BMS
-
-	//enum pod_status;
+typedef struct __attribute__((packed)) {
+	uint8_t start_marker;
+	uint32_t lidar_dist;
+	float roll, pitch;            //MPU
+	float thermistors[8];
+	float pt_up, pt_down;         //ina219, left and right brake
+	float lv_batt;                //ina260
+	float hv_batt_temp, hv_batt;  //BMS
+	uint8_t pod_state;
+	char message[100];
 } SensorData;
 
 
@@ -156,10 +191,18 @@ typedef enum {
 	LOAD,
 	PRECHARGE,
 	START,
+	STOP,
 	FAULT,
 	HALT,
-	STOP
 } pod_status;
+
+typedef enum {
+    CMD_NONE,
+    CMD_OK,
+    CMD_LOAD,
+    CMD_PRECHARGE,
+    CMD_STOP
+} GUICommand;
 
 typedef struct {
     pod_status currentState;
@@ -186,13 +229,15 @@ FSM_t fsm = {
 };
 
 volatile uint8_t guiCommand = 0;
-SensorData sensorData;
+static SensorData sensorData;
 PreRunStatus preRun;
 
 #define THERMISTOR_COUNT 8
-uint16_t rawValues[THERMISTOR_COUNT];
+uint32_t rawValues[THERMISTOR_COUNT];
+float thermistorValues[THERMISTOR_COUNT];
 INA219_t ina219_left;
 INA219_t ina219_right;
+uint32_t object_distance;
 
 /* USER CODE END 0 */
 
@@ -231,6 +276,7 @@ int main(void)
   MX_I2C3_Init();
   MX_I2C4_Init();
   MX_TIM1_Init();
+  MX_UART7_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -264,14 +310,17 @@ int main(void)
   /* creation of thermistorsTask */
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, NULL, &thermistorsTask_attributes);
 
-  /* creation of LEDTask */
-  LEDTaskHandle = osThreadNew(StartLEDTask, NULL, &LEDTask_attributes);
-
   /* creation of INATask */
   INATaskHandle = osThreadNew(StartINATask, NULL, &INATask_attributes);
 
-  /* creation of FSMTask */
-  FSMTaskHandle = osThreadNew(StartFSMTask, NULL, &FSMTask_attributes);
+  /* creation of telemetryTask */
+  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
+
+  /* creation of commandTask */
+  commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
+
+  /* creation of fsmTask */
+  fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -313,355 +362,11 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
-
-void blink_yellow(void)
-{
-    static uint32_t lastToggle = 0;
-    static uint8_t ledOn = 0;
-
-    if (osKernelGetTickCount() - lastToggle > 500)
-    {
-        lastToggle = osKernelGetTickCount();
-        ledOn = !ledOn;
-
-        if (ledOn)
-            WS2812_SetAll(128, 128, 0);
-        else
-            WS2812_SetAll(0, 0, 0);
-
-        WS2812_Start();
-    }
-}
-
-void blink_red(void)
-{
-    static uint32_t lastToggle = 0;
-    static uint8_t ledOn = 0;
-
-    if (osKernelGetTickCount() - lastToggle > 500)
-    {
-        lastToggle = osKernelGetTickCount();
-        ledOn = !ledOn;
-
-        if (ledOn)
-            WS2812_SetAll(180, 0, 0);
-        else
-            WS2812_SetAll(0, 0, 0);
-
-        WS2812_Start();
-    }
-}
-
-void init_sensors(void) {
-	// LIDAR
-	printf("LIDAR initializing...\r\n");
-	lidar_config(4);
-	printf("Finished LIDAR initialization.\r\n");
-
-	// MPU
-	printf("MPU initializing...\r\n");
-	MPU6050_Initialization(&hi2c3);
-	printf("Finished MPU initialization.\r\n");
-
-	// THERMISTORS
-	printf("THERMS initializing...\r\n");
-	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-	printf("Finished THERMS initialization.\r\n");
-
-	// LED
-	printf("LED initializing...\r\n");
-	WS2812_Init(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
-	printf("Finished LED initialization.\r\n");
-
-	// INA
-	printf("INAs initializing...\r\n");
-    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-	    Error_Handler();
-    }
-
-    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-	    Error_Handler();
-    }
-	printf("Finished INAs initialization.\r\n");
-	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
-}
-
-void pre_run_checklist(SensorData *data)
-{
-	// testing purposes lolz
-//	preRun.sensorsOk = 1;
-//	preRun.brakesClosed = 1;
-//	preRun.tiltOk = 1;
-//	preRun.pneumaticsOk = 1;
-//	preRun.batteryOk = 1;
-
-
-    // TODO: GUI comms check
-
-    // sensors initialized -- can be read
-	init_sensors();
-	preRun.sensorsOk = 1;
-
-    // TODO: brakes closed
-
-	// LEDs turned on
-	WS2812_SetAll(128, 0, 64);
-	WS2812_Start();
-	preRun.ledsOk = 1;
-
-    // tilt range check -- roll, pitch
-		// TODO: change bounds vals and error ping
-	if (data->roll >= 23.34 || data->pitch >= 23.34) {
-		printf("ERROR");
-	}
-	preRun.tiltOk = 1;
-
-    // TODO: pneumatics pressure
-
-    // TODO: battery safe -- within V, I, T range
-
-	preRun.allOk = (
-		preRun.sensorsOk &&
-		preRun.brakesClosed &&
-		preRun.ledsOk &&
-		preRun.tiltOk &&
-		preRun.pneumaticsOk &&
-		preRun.batteryOk
-	);
-}
-
-bool fault_conditions(SensorData *data) {
-	// dynamics
-	if (data->roll >= 23.34 || data->pitch >= 23.34) return 0;
-
-	// TODO: braking (pneumatics)
-
-	// LIM
-	for (int i = 0; i < THERMISTOR_COUNT; i++) {
-		if (data->thermistors[i] >= 80) return 0;
-	}
-
-	// TODO: battery
-
-	// TODO: powers
-
-	// TODO: check comms signal
-
-	// LiDAR check
-	if (data->lidar_dist > 114) return 0;
-	return 1;
-}
-
-void init_actions(SensorData *data) {
-    printf("Entering INIT state\r\n");
-
-    // TODO: brakes CLOSED
-//    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
-
-    // TODO: establish GUI comms again
-
-    // TODO: LV system ON -- calibrate sensors??? what does this mean
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
-    // TODO: send sensor data to GUI
-
-
-	pre_run_checklist(&sensorData);
-	blink_yellow();
-    printf("INIT complete -- waiting for transition\r\n");
-}
-
-void load_actions(SensorData *data) {
-    printf("Entering LOAD state\r\n");
-
-    // TODO: brakes OPEN
-    //HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_RESET);
-
-    // TODO: LV stays ON
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
-    // TODO: HV OFF
-//    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
-
-    // TODO: send sensor data to GUI
-
-	blink_yellow();
-    printf("LOAD complete -- waiting for transition\r\n");
-}
-
-void precharge_actions(SensorData *data) {
-	// TODO: brakes open
-
-	// TODO: turn on HV sequence
-
-	// TODO: send sensor data to GUI
-
-	blink_yellow();
-	printf("PRECHARGE complete -- waiting for transition\r\n");
-}
-
-void start_actions(SensorData *data) {
-	//	TODO: OpenBrakes();
-	//	TODO: StartVFD_LIM();
-	//	TODO: SendSensorDataToGUI(data);
-
-	// solid green
-	WS2812_SetAll(0, 180, 0);
-	WS2812_Start();
-	printf("START complete -- waiting for transition\r\n");
-}
-
-
-void stop_actions(SensorData *data) {
-	//	TODO: CloseBrakes();
-	//	TODO: SetHVPower(OFF);
-	//	TODO: SendSensorDataToGUI(data);
-
-
-	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
-	printf("STOP complete -- waiting for transition\r\n");
-}
-
-void fault_actions(SensorData *data) {
-	// TODO: CloseBrakes();
-	// TODO: EmergencyRelayCutoff();
-	// TODO: StoreFaultInfo(data);
-
-
-	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
-	printf("FAULT complete -- waiting for transition\r\n");
-}
-
-void halt_actions(SensorData *data) {
-	// TODO: CloseBrakes();
-	// TODO: SaveToOnboardMemory(data);
-	// TODO: SetHVPower(OFF);
-
-
-	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
-	printf("START complete -- waiting for transition\r\n");
-}
-
-void StartFSMTask(void *argument) {
-
-	for (;;) {
-
-		//run_pre_run_checklist(&sensorData);
-		bool auto_trigger = fault_conditions(&sensorData);
-
-		switch(fsm.currentState) {
-		case INIT:
-			if (fsm.stateEntry) {
-				init_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-			//guiCommand = CMD_LOAD; // just to test
-
-			// manual GUI trigger
-			if(preRun.allOk && guiCommand == CMD_LOAD) {
-				guiCommand = CMD_NONE;
-				fsm.previousState = fsm.currentState;
-				fsm.currentState = LOAD;
-				fsm.stateEntry = 1;
-			}
-			break;
-		case LOAD:
-			if (fsm.stateEntry) {
-				load_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-			// automatic trigger
-			fsm.previousState = fsm.currentState;
-			if (auto_trigger) {
-				fsm.currentState = FAULT;
-			} else if(preRun.allOk && guiCommand == CMD_PRECHARGE) { // manual GUI trigger
-				guiCommand = CMD_NONE;
-				fsm.currentState = PRECHARGE;
-			} else {
-				guiCommand = CMD_NONE;
-				fsm.currentState = STOP;
-			}
-			fsm.stateEntry = 1;
-			break;
-		case PRECHARGE:
-			if (fsm.stateEntry) {
-				precharge_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-
-			fsm.previousState = fsm.currentState;
-			if (auto_trigger) {
-				fsm.currentState = FAULT;
-			}
-			// TODO: automatic trigger -- if voltage/current stabilize
-//			else if (voltage_current) {
-//				fsm.currentState = START;
-//			}
-			else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
-				guiCommand = CMD_NONE;
-				fsm.currentState = STOP;
-			}
-			fsm.stateEntry = 1;
-			break;
-		case START:
-			if (fsm.stateEntry) {
-				start_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-
-			fsm.previousState = fsm.currentState;
-			if (auto_trigger) {
-				fsm.currentState = FAULT;
-			} else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
-				guiCommand = CMD_NONE;
-				fsm.currentState = STOP;
-			}
-			fsm.stateEntry = 1;
-			break;
-		case FAULT:
-			if (fsm.stateEntry) {
-				fault_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-			// add transition logic
-			break;
-		case HALT:
-			if (fsm.stateEntry) {
-				halt_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-			// add transition logic
-			break;
-		case STOP:
-			if (fsm.stateEntry) {
-				stop_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-			// add transition logic
-			break;
-		}
-		osDelay(50); // non-blocking
-	}
-}
-
 
 /**
   * @brief System Clock Configuration
@@ -1075,6 +780,54 @@ static void MX_TIM1_Init(void)
 }
 
 /**
+  * @brief UART7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART7_Init(void)
+{
+
+  /* USER CODE BEGIN UART7_Init 0 */
+
+  /* USER CODE END UART7_Init 0 */
+
+  /* USER CODE BEGIN UART7_Init 1 */
+
+  /* USER CODE END UART7_Init 1 */
+  huart7.Instance = UART7;
+  huart7.Init.BaudRate = 115200;
+  huart7.Init.WordLength = UART_WORDLENGTH_8B;
+  huart7.Init.StopBits = UART_STOPBITS_1;
+  huart7.Init.Parity = UART_PARITY_NONE;
+  huart7.Init.Mode = UART_MODE_TX_RX;
+  huart7.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart7.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart7.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart7.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart7.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart7, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart7, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART7_Init 2 */
+
+  /* USER CODE END UART7_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -1107,9 +860,9 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
@@ -1221,6 +974,241 @@ void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_
     *hours = total_seconds / 3600;
 }
 
+void blink_yellow(void)
+{
+    static uint32_t lastToggle = 0;
+    static uint8_t ledOn = 0;
+
+    if (osKernelGetTickCount() - lastToggle > 500)
+    {
+        lastToggle = osKernelGetTickCount();
+        ledOn = !ledOn;
+
+        if (ledOn)
+            WS2812_SetAll(128, 128, 0);
+        else
+            WS2812_SetAll(0, 0, 0);
+
+        WS2812_Start();
+    }
+}
+
+void blink_red(void)
+{
+    static uint32_t lastToggle = 0;
+    static uint8_t ledOn = 0;
+
+    if (osKernelGetTickCount() - lastToggle > 500)
+    {
+        lastToggle = osKernelGetTickCount();
+        ledOn = !ledOn;
+
+        if (ledOn)
+            WS2812_SetAll(180, 0, 0);
+        else
+            WS2812_SetAll(0, 0, 0);
+
+        WS2812_Start();
+    }
+}
+
+void init_sensors(void) {
+	// LIDAR
+	printf("LIDAR initializing...\r\n");
+	lidar_config(4);
+	printf("Finished LIDAR initialization.\r\n");
+
+	// MPU
+	printf("MPU initializing...\r\n");
+	MPU6050_Initialization(&hi2c3);
+	printf("Finished MPU initialization.\r\n");
+
+	// THERMISTORS
+	printf("THERMS initializing...\r\n");
+	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
+	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	printf("Finished THERMS initialization.\r\n");
+
+	// LED
+	printf("LED initializing...\r\n");
+	WS2812_Init(&htim1, TIM_CHANNEL_1);
+	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+	printf("Finished LED initialization.\r\n");
+
+	// INA
+	printf("INAs initializing...\r\n");
+    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
+	    Error_Handler();
+    }
+
+    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
+	    Error_Handler();
+    }
+	printf("Finished INAs initialization.\r\n");
+	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
+}
+
+void pre_run_checklist(SensorData *data)
+{
+	// testing purposes lolz
+//	preRun.sensorsOk = 1;
+//	preRun.brakesClosed = 1;
+//	preRun.tiltOk = 1;
+//	preRun.pneumaticsOk = 1;
+//	preRun.batteryOk = 1;
+
+
+    // TODO: GUI comms check
+
+    // sensors initialized -- can be read
+	init_sensors();
+	preRun.sensorsOk = 1;
+
+    // TODO: brakes closed
+
+	// LEDs turned on
+	WS2812_SetAll(128, 0, 64);
+	WS2812_Start();
+	preRun.ledsOk = 1;
+
+    // tilt range check -- roll, pitch
+		// TODO: change bounds vals and error ping
+	if (data->roll >= 23.34 || data->pitch >= 23.34) {
+		printf("ERROR");
+	}
+	preRun.tiltOk = 1;
+
+    // TODO: pneumatics pressure
+
+    // TODO: battery safe -- within V, I, T range
+
+	preRun.allOk = (
+		preRun.sensorsOk &&
+		preRun.brakesClosed &&
+		preRun.ledsOk &&
+		preRun.tiltOk &&
+		preRun.pneumaticsOk &&
+		preRun.batteryOk
+	);
+}
+
+bool fault_conditions(SensorData *data) {
+	// dynamics
+	if (data->roll >= 23.34 || data->pitch >= 23.34) return 0;
+
+	// TODO: braking (pneumatics)
+
+	// LIM
+	for (int i = 0; i < THERMISTOR_COUNT; i++) {
+		if (data->thermistors[i] >= 80) return 0;
+	}
+
+	// TODO: battery
+
+	// TODO: powers
+
+	// TODO: check comms signal
+
+	// LiDAR check
+	if (data->lidar_dist > 114) return 0;
+	return 1;
+}
+
+void init_actions(SensorData *data) {
+    printf("Entering INIT state\r\n");
+
+    // TODO: brakes CLOSED
+//    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
+
+    // TODO: establish GUI comms again
+
+    // TODO: LV system ON -- calibrate sensors??? what does this mean
+//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
+
+    // TODO: send sensor data to GUI
+
+
+	pre_run_checklist(&sensorData);
+	blink_yellow();
+    printf("INIT complete -- waiting for transition\r\n");
+}
+
+void load_actions(SensorData *data) {
+    printf("Entering LOAD state\r\n");
+
+    // TODO: brakes OPEN
+    //HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_RESET);
+
+    // TODO: LV stays ON
+//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
+
+    // TODO: HV OFF
+//    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
+
+    // TODO: send sensor data to GUI
+
+	blink_yellow();
+    printf("LOAD complete -- waiting for transition\r\n");
+}
+
+void precharge_actions(SensorData *data) {
+	// TODO: brakes open
+
+	// TODO: turn on HV sequence
+
+	// TODO: send sensor data to GUI
+
+	blink_yellow();
+	printf("PRECHARGE complete -- waiting for transition\r\n");
+}
+
+void start_actions(SensorData *data) {
+	//	TODO: OpenBrakes();
+	//	TODO: StartVFD_LIM();
+	//	TODO: SendSensorDataToGUI(data);
+
+	// solid green
+	WS2812_SetAll(0, 180, 0);
+	WS2812_Start();
+	printf("START complete -- waiting for transition\r\n");
+}
+
+
+void stop_actions(SensorData *data) {
+	//	TODO: CloseBrakes();
+	//	TODO: SetHVPower(OFF);
+	//	TODO: SendSensorDataToGUI(data);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("STOP complete -- waiting for transition\r\n");
+}
+
+void fault_actions(SensorData *data) {
+	// TODO: CloseBrakes();
+	// TODO: EmergencyRelayCutoff();
+	// TODO: StoreFaultInfo(data);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("FAULT complete -- waiting for transition\r\n");
+}
+
+void halt_actions(SensorData *data) {
+	// TODO: CloseBrakes();
+	// TODO: SaveToOnboardMemory(data);
+	// TODO: SetHVPower(OFF);
+
+
+	// solid red
+	WS2812_SetAll(180, 0, 0);
+	WS2812_Start();
+	printf("START complete -- waiting for transition\r\n");
+}
 
 /* USER CODE END 4 */
 
@@ -1234,21 +1222,21 @@ void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_
 void StartLidarTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	printf("Lidar Task Starting...\r\n");
-
-	/* Configure lidar once */
-	lidar_config(4);
-	uint32_t object_distance;
-
-	char uart_tx_buff[100];
+//	printf("Lidar Task Starting...\r\n");
+//
+//	/* Configure lidar once */
+//	lidar_config(4);
+////	uint32_t object_distance;
+//
+//	char uart_tx_buff[100];
 
 	for(;;)
 	{
-		object_distance = retrieve_lidar_distance();
-		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
-		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+//		object_distance = retrieve_lidar_distance();
+//		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
+//		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-		//printf("Lidar task ALIVE");
+//		printf("Lidar task ALIVE");
 		osDelay(300);
 	}
   /* USER CODE END 5 */
@@ -1264,48 +1252,48 @@ void StartLidarTask(void *argument)
 void StartMPUTask(void *argument)
 {
   /* USER CODE BEGIN StartMPUTask */
-	  printf("MPU Task Starting...\r\n");
+//	  printf("MPU Task Starting...\r\n");
 
 	  // MPU initialization
-	  MPU6050_Initialization(&hi2c3);
-	  printf("Finished MPU initialization.\r\n");
-	  float roll = 0, pitch = 0;
-	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
-	  uint32_t lastTick = osKernelGetTickCount();
-	  char uart_tx_buff[150];
+//	  MPU6050_Initialization(&hi2c3);
+//	  printf("Finished MPU initialization.\r\n");
+//	  float roll = 0, pitch = 0;
+//	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
+//	  uint32_t lastTick = osKernelGetTickCount();
+//	  char uart_tx_buff[150];
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
-		  if(MPU6050_DataReady()) {
-			  uint32_t now = osKernelGetTickCount();
-			  float dt = (now - lastTick) / 1000.0f;
-			  lastTick = now;
-
-			  MPU6050_ProcessData(&MPU6050);
-			  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
-			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
-								  * 180.0f / M_PI;
-
-			  // 2. Integrate gyro
-			  roll  += MPU6050.gyro_x * dt;
-			  pitch += MPU6050.gyro_y * dt;
-
-			  // 3. Complementary filter
-			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
-			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
-
-			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
-			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-			  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-			  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
-			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-			 }
-	  //printf("MPU task initialized!");
+//		  if(MPU6050_DataReady()) {
+//			  uint32_t now = osKernelGetTickCount();
+//			  float dt = (now - lastTick) / 1000.0f;
+//			  lastTick = now;
+//
+//			  MPU6050_ProcessData(&MPU6050);
+//			  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
+//			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
+//								  * 180.0f / M_PI;
+//
+//			  // 2. Integrate gyro
+//			  roll  += MPU6050.gyro_x * dt;
+//			  pitch += MPU6050.gyro_y * dt;
+//
+//			  // 3. Complementary filter
+//			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
+//			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
+//
+//			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
+//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//			  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
+//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//			  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
+//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
+//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//			 }
+	  printf("MPU task ran!\r\n");
 	  osDelay(300);
   }
   /* USER CODE END StartMPUTask */
@@ -1326,12 +1314,11 @@ void StartThermistorsTask(void *argument)
 	    uint32_t minutes = 0;
 	    uint32_t seconds = 0;
 	    uint32_t time_elapsed = 0;
-	    int thermistor_count = 8;
-	    uint16_t rawValues[thermistor_count];
-	    char uart_tx_buff[100];  // <-- buffer for sprintf
+//	    char uart_tx_buff[100];
 
 	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
-	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, thermistor_count);
+	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
 	  /* Infinite loop */
 	  for(;;)
@@ -1340,58 +1327,18 @@ void StartThermistorsTask(void *argument)
 			  convCompleted = 0;
 			  time_elapsed = HAL_GetTick() - startTime;
 			  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
-			  for (int i=0; i<thermistor_count; i++) {
-				  float value = ntc_convertToC(rawValues[i]);
-				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+			  for (int i=0; i<THERMISTOR_COUNT; i++) {
+//				  float value = ntc_convertToC(rawValues[i]);
+				  float value = 72.01;
+				  thermistorValues[i] = value;
+//				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+//				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 			  }
 		  }
-		  //printf("Thermistors ALIVE");
+		  printf("Thermistors ALIVE\r\n");
 		  osDelay(300);
 	  }
-	  /* USER CODE END StartThermistorsTask */
-}
-
-/* USER CODE BEGIN Header_StartLEDTask */
-/**
-* @brief Function implementing the LEDTask thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_StartLEDTask */
-void StartLEDTask(void *argument)
-{
-  /* USER CODE BEGIN StartLEDTask */
-	WS2812_Init(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
-	/* Infinite loop */
-	for(;;)
-	  {
-	  printf("Pink\r\n");
-	  WS2812_SetAll(128, 0, 64);
-	  WS2812_Start();
-	  osDelay(500);
-	  printf("Blue\r\n");
-	  WS2812_SetAll(0, 0, 180);
-	  WS2812_Start();
-	  osDelay(500);
-	  printf("Yellow\r\n");
-	  WS2812_SetAll(128, 128, 0);
-	  WS2812_Start();
-	  osDelay(500);
-	  printf("Green\r\n");
-	  WS2812_SetAll(0, 180, 0);
-	  WS2812_Start();
-	  osDelay(500);
-	  printf("Red\r\n");
-	  WS2812_SetAll(180, 0, 0);
-	  WS2812_Start();
-	  osDelay(500);
-
-		//printf("LED Task Alive!");
-		osDelay(300);
-	  }
-  /* USER CODE END StartLEDTask */
+  /* USER CODE END StartThermistorsTask */
 }
 
 /* USER CODE BEGIN Header_StartINATask */
@@ -1404,61 +1351,268 @@ void StartLEDTask(void *argument)
 void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
-	  INA219_t ina219;
-	  uint16_t vbus, vshunt, current, power;
-
-	  INA219_t ina219_1;
-	  uint16_t vbus1, vshunt1, current1, power1;
+//	  INA219_t ina219;
+//	  uint16_t vbus, vshunt, current, power;
+//
+//	  INA219_t ina219_1;
+//	  uint16_t vbus1, vshunt1, current1, power1;
 	  char uart_tx_buff[100];
-	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
-		  Error_Handler();
-	  }
-
-	  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
-		  Error_Handler();
-	  }
+//	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
+//		  Error_Handler();
+//	  }
+//
+//	  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
+//		  Error_Handler();
+//	  }
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
-		  vbus = INA219_ReadBusVoltage(&ina219);
-		  vshunt = INA219_ReadShuntVoltage(&ina219);
-		  current = INA219_ReadCurrent(&ina219);
-		  power = INA219_ReadPower(&ina219);
+//		  vbus = INA219_ReadBusVoltage(&ina219);
+//		  vshunt = INA219_ReadShuntVoltage(&ina219);
+//		  current = INA219_ReadCurrent(&ina219);
+//		  power = INA219_ReadPower(&ina219);
+//
+//		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  vbus1 = INA219_ReadBusVoltage(&ina219_1);
+//		  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
+//		  current1 = INA219_ReadCurrent(&ina219_1);
+//		  power1 = INA219_ReadPower(&ina219_1);
+//
+//		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//
+//		  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//		printf("INA Task Alive!\r\n");
+		  sprintf(uart_tx_buff, "INA Task\r\n");
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-		  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  vbus1 = INA219_ReadBusVoltage(&ina219_1);
-		  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
-		  current1 = INA219_ReadCurrent(&ina219_1);
-		  power1 = INA219_ReadPower(&ina219_1);
-
-		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		//printf("INA Task Alive!");
 		osDelay(300);
 	  }
   /* USER CODE END StartINATask */
+}
+
+/* USER CODE BEGIN Header_StartTelemetryTask */
+/**
+* @brief Function implementing the telemetryTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartTelemetryTask */
+void StartTelemetryTask(void *argument)
+{
+  /* USER CODE BEGIN StartTelemetryTask */
+  /* Infinite loop */
+  char uart_tx_buff[100];
+  for(;;)
+  {
+
+	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+	  sensorData.start_marker = 0xAA;
+	  sensorData.lidar_dist = 0;
+	  sensorData.roll = 0;
+	  sensorData.pitch = 0;
+	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
+	  sensorData.pt_up = 0;
+	  sensorData.pt_down = 0;
+	  sensorData.lv_batt = 0;
+	  sensorData.hv_batt_temp = 0;
+	  sensorData.hv_batt = 0;
+	  sensorData.pod_state = 1;
+	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
+	  // DMA problem??
+//	  HAL_UART_Transmit_DMA(&huart7, (uint8_t*)&sensorData, sizeof(SensorData));
+	  sprintf(uart_tx_buff, "Send telemetry data\r\n");
+	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+	  HAL_StatusTypeDef res = HAL_UART_Transmit(&huart7, (uint8_t*)&sensorData, sizeof(SensorData), 100);
+
+	  if (res == HAL_OK) {
+	      sprintf(uart_tx_buff, "UART7 Sent %d bytes successfully\r\n", sizeof(SensorData));
+	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+	  } else {
+	      sprintf(uart_tx_buff, "UART7 ERROR! Status: %d, Code: %lu\r\n", res, huart7.ErrorCode);
+	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+	  }
+	  osDelay(1000);
+  }
+  /* USER CODE END StartTelemetryTask */
+}
+
+/* USER CODE BEGIN Header_StartCommandTask */
+/**
+* @brief Function implementing the commandTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCommandTask */
+void StartCommandTask(void *argument)
+{
+  /* USER CODE BEGIN StartCommandTask */
+  /* Infinite loop */
+	HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+	char cmd_debug_msg[50];
+  for(;;)
+  {
+	  if (newCommandFlag == 1) {
+		  newCommandFlag = 0;
+		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
+			  HAL_UART_AbortReceive(&huart7);
+		  }
+		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+	  } else {
+		  printf("No command received....\r\n");
+	  }
+	  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
+		  sprintf(cmd_debug_msg, "UART7 Error Detected: %lu. Resetting...\r\n", huart7.ErrorCode);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+
+		  HAL_UART_AbortReceive(&huart7);
+		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+	  }
+    osDelay(500);
+  }
+  /* USER CODE END StartCommandTask */
+}
+
+/* USER CODE BEGIN Header_StartFSMTask */
+/**
+* @brief Function implementing the fsmTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartFSMTask */
+void StartFSMTask(void *argument)
+{
+  /* USER CODE BEGIN StartFSMTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	  //run_pre_run_checklist(&sensorData);
+		bool auto_trigger = fault_conditions(&sensorData);
+
+		switch(fsm.currentState) {
+		case INIT:
+			if (fsm.stateEntry) {
+//				init_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+			//guiCommand = CMD_LOAD; // just to test
+
+			// manual GUI trigger
+			if(preRun.allOk && guiCommand == CMD_LOAD) {
+				guiCommand = CMD_NONE;
+				fsm.previousState = fsm.currentState;
+				fsm.currentState = LOAD;
+				fsm.stateEntry = 1;
+			}
+			break;
+		case LOAD:
+			if (fsm.stateEntry) {
+				load_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// automatic trigger
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			} else if(preRun.allOk && guiCommand == CMD_PRECHARGE) { // manual GUI trigger
+				guiCommand = CMD_NONE;
+				fsm.currentState = PRECHARGE;
+			} else {
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
+			}
+			fsm.stateEntry = 1;
+			break;
+		case PRECHARGE:
+			if (fsm.stateEntry) {
+				precharge_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			}
+			// TODO: automatic trigger -- if voltage/current stabilize
+  //			else if (voltage_current) {
+  //				fsm.currentState = START;
+  //			}
+			else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
+			}
+			fsm.stateEntry = 1;
+			break;
+		case START:
+			if (fsm.stateEntry) {
+				start_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+
+			fsm.previousState = fsm.currentState;
+			if (auto_trigger) {
+				fsm.currentState = FAULT;
+			} else if(preRun.allOk && guiCommand == CMD_STOP) { // manual GUI trigger
+				guiCommand = CMD_NONE;
+				fsm.currentState = STOP;
+			}
+			fsm.stateEntry = 1;
+			break;
+		case FAULT:
+			if (fsm.stateEntry) {
+				fault_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
+		case HALT:
+			if (fsm.stateEntry) {
+				halt_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
+		case STOP:
+			if (fsm.stateEntry) {
+				stop_actions(&sensorData);
+				fsm.stateEntry = 0;
+			}
+
+			// add transition logic
+			break;
+		}
+    osDelay(50);
+  }
+  /* USER CODE END StartFSMTask */
 }
 
 /**
