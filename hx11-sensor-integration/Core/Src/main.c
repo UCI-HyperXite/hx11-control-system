@@ -233,7 +233,7 @@ static SensorData sensorData;
 PreRunStatus preRun;
 
 #define THERMISTOR_COUNT 8
-uint32_t rawValues[THERMISTOR_COUNT];
+uint16_t rawValues[THERMISTOR_COUNT];
 float thermistorValues[THERMISTOR_COUNT];
 INA219_t ina219_left;
 INA219_t ina219_right;
@@ -1317,8 +1317,9 @@ void StartThermistorsTask(void *argument)
 //	    char uart_tx_buff[100];
 
 	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
+//	  memset(rawValues, 0, sizeof(rawValues));  // clear data
+
 	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
 	  /* Infinite loop */
 	  for(;;)
@@ -1328,8 +1329,9 @@ void StartThermistorsTask(void *argument)
 			  time_elapsed = HAL_GetTick() - startTime;
 			  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
 			  for (int i=0; i<THERMISTOR_COUNT; i++) {
-//				  float value = ntc_convertToC(rawValues[i]);
-				  float value = 72.01;
+//				  thermistorValues[i] = rawValues[i];
+				  float value = ntc_convertToC(rawValues[i]);
+//				  float value = 72.01;
 				  thermistorValues[i] = value;
 //				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
 //				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
