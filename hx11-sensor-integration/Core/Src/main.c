@@ -45,6 +45,7 @@ void lidar_config(int);
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define LIDAR_ADD 0x62<<1  // i2c slave address of lidar lite
+I2C_HandleTypeDef *LIDAR_I2C_Handler;
 
 
 /* USER CODE END PD */
@@ -61,8 +62,6 @@ ADC_HandleTypeDef hadc1;
 DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c3;
-I2C_HandleTypeDef hi2c4;
 
 TIM_HandleTypeDef htim1;
 DMA_HandleTypeDef hdma_tim1_ch1;
@@ -132,8 +131,6 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_I2C3_Init(void);
-static void MX_I2C4_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_UART7_Init(void);
 void StartLidarTask(void *argument);
@@ -273,8 +270,6 @@ int main(void)
   MX_DMA_Init();
   MX_I2C1_Init();
   MX_ADC1_Init();
-  MX_I2C3_Init();
-  MX_I2C4_Init();
   MX_TIM1_Init();
   MX_UART7_Init();
   /* USER CODE BEGIN 2 */
@@ -604,102 +599,6 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief I2C3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C3_Init(void)
-{
-
-  /* USER CODE BEGIN I2C3_Init 0 */
-
-  /* USER CODE END I2C3_Init 0 */
-
-  /* USER CODE BEGIN I2C3_Init 1 */
-
-  /* USER CODE END I2C3_Init 1 */
-  hi2c3.Instance = I2C3;
-  hi2c3.Init.Timing = 0x00602173;
-  hi2c3.Init.OwnAddress1 = 0;
-  hi2c3.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c3.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c3.Init.OwnAddress2 = 0;
-  hi2c3.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c3.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c3.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c3, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c3, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C3_Init 2 */
-
-  /* USER CODE END I2C3_Init 2 */
-
-}
-
-/**
-  * @brief I2C4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C4_Init(void)
-{
-
-  /* USER CODE BEGIN I2C4_Init 0 */
-
-  /* USER CODE END I2C4_Init 0 */
-
-  /* USER CODE BEGIN I2C4_Init 1 */
-
-  /* USER CODE END I2C4_Init 1 */
-  hi2c4.Instance = I2C4;
-  hi2c4.Init.Timing = 0x10707DBC;
-  hi2c4.Init.OwnAddress1 = 0;
-  hi2c4.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c4.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c4.Init.OwnAddress2 = 0;
-  hi2c4.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c4.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c4.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c4, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c4, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C4_Init 2 */
-
-  /* USER CODE END I2C4_Init 2 */
-
-}
-
-/**
   * @brief TIM1 Initialization Function
   * @param None
   * @retval None
@@ -878,43 +777,49 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void lidar_init(I2C_HandleTypeDef *hi2c)
+{
+    LIDAR_I2C_Handler = hi2c;
+}
+
 void lidar_config(int configur)
 {
     // configuration setting for lidar
     cmd[0] = 0x04;
-    HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x00,1,cmd,1,0x100);
+    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,0x100);
     switch(configur)
     {
     case 0:
         //default mode , balance mode
         cmd[0]=0x80;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x04;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0x00;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
 
 
     case 1:
         //short range, high speed
         cmd[0]=0x1d;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x08;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0x00;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
 
 
     case 2:
         //default range, higher speed short range
         cmd[0]=0x80;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x08;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0x00;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
 
 
@@ -923,33 +828,33 @@ void lidar_config(int configur)
     case 3:
         //maximum Range
         cmd[0]=0xff;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x08;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0x00;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
 
 
     case 4:
         //high sensitivity detection, high  measurement
         cmd[0]=0x80;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x08;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0x80;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
 
 
     case 5:
         //low sensitivity detection , low  measurement
         cmd[0]=0x80;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
         cmd[0]=0x08;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
         cmd[0]=0xb0;
-        HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
+        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
         break;
     }
 }
@@ -958,10 +863,10 @@ void lidar_config(int configur)
 int retrieve_lidar_distance()
 {
     cmd[0]=0x04;
-    HAL_I2C_Mem_Write(&hi2c4,LIDAR_ADD ,0x00,1,cmd,1,100);
+    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,100);
     cmd[0]=0x8f;
-    HAL_I2C_Master_Transmit(&hi2c4,LIDAR_ADD,cmd,1,100);
-    HAL_I2C_Master_Receive(&hi2c4,LIDAR_ADD,data,2,100);
+    HAL_I2C_Master_Transmit(LIDAR_I2C_Handler,LIDAR_ADD,cmd,1,100);
+    HAL_I2C_Master_Receive(LIDAR_I2C_Handler,LIDAR_ADD,data,2,100);
     m_distance = (data[0]<<8)|(data[1]);
     return m_distance ;
 }
@@ -1015,12 +920,13 @@ void blink_red(void)
 void init_sensors(void) {
 	// LIDAR
 	printf("LIDAR initializing...\r\n");
+	lidar_init(&hi2c1);
 	lidar_config(4);
 	printf("Finished LIDAR initialization.\r\n");
 
 	// MPU
 	printf("MPU initializing...\r\n");
-	MPU6050_Initialization(&hi2c3);
+	MPU6050_Initialization(&hi2c1);
 	printf("Finished MPU initialization.\r\n");
 
 	// THERMISTORS
@@ -1225,6 +1131,7 @@ void StartLidarTask(void *argument)
 //	printf("Lidar Task Starting...\r\n");
 //
 //	/* Configure lidar once */
+//	lidar_init(&hi2c1);
 //	lidar_config(4);
 ////	uint32_t object_distance;
 //
@@ -1255,7 +1162,7 @@ void StartMPUTask(void *argument)
 //	  printf("MPU Task Starting...\r\n");
 
 	  // MPU initialization
-//	  MPU6050_Initialization(&hi2c3);
+//	  MPU6050_Initialization(&hi2c1);
 //	  printf("Finished MPU initialization.\r\n");
 //	  float roll = 0, pitch = 0;
 //	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
