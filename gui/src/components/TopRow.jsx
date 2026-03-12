@@ -6,27 +6,27 @@ export function TopRow({ telemetry }) {
 		<div style={{ 
 			display: "flex", 
 			gap: "1.25vw", 
-			width: "74.583vw", 
-			alignItems: "flex-start" 
+			alignItems: "flex-start",
+			width: "86.49vw"
 			}}>
 
 			{/* LEFT COLUMN */}
 			<div style={{ 
 				display: "flex", 
 				flexDirection: "column", 
-				gap: "1.25vw", 
+				gap: "1.5vw", 
 				flexShrink: 0 }}>
 
 				{/* Top two cards */}
 				<div style={{ display: "flex", gap: "1.25vw" }}>
 					<Card style={{ 
-						height: "11vw", 
-						width: "12.5vw", 
+						height: "13.2vw", 
+						width: "15vw", 
 						flexShrink: 0, 
 						fontWeight: "bold", 
-						fontSize: "1.172vw", 
+						fontSize: "1.406vw", 
 						lineHeight: 2, 
-						paddingLeft: "1vw" }}>
+						paddingLeft: "1.2vw" }}>
 						<div>Time: {telemetry.time}</div>
 						<div>Distance: {telemetry.distance} cm</div>
 						<div>Position: {telemetry.position}</div>
@@ -34,19 +34,19 @@ export function TopRow({ telemetry }) {
 					</Card>
 
 					<Card title="Rotation" style={{ 
-						height: "11vw", 
-						width: "22.222vw", 
+						height: "13.2vw", 
+						width: "26.667vw", 
 						flexShrink: 0, 
-						fontSize: "1.111vw", 
+						fontSize: "1.332vw", 
 						fontWeight: "bold" }}>
-						<div style={{ marginTop: "-0.5vw" }}>Accel:</div>
-						<div style={{ marginLeft: "1.042vw", display: "flex", gap: "1.389vw" }}>
+						<div style={{ marginTop: "-0.6vw" }}>Accel:</div>
+						<div style={{ marginLeft: "1.2504vw", display: "flex", gap: "1.667vw" }}>
 							<div>X: {telemetry.accelerationx}</div>
 							<div>Y: {telemetry.accelerationy}</div>
 							<div>Z: {telemetry.accelerationz} m/s²</div>
 						</div>
 						<div style={{ marginTop: "0.556vw" }}>Gyro:</div>
-						<div style={{ marginLeft: "1.042vw", display: "flex", gap: "1.389vw" }}>
+						<div style={{ marginLeft: "1.2504vw", display: "flex", gap: "1.667vw" }}>
 							<div>X: {telemetry.gyrox}</div>
 							<div>Y: {telemetry.gyroy}</div>
 							<div>Z: {telemetry.gyroz} rad/s</div>
@@ -55,9 +55,9 @@ export function TopRow({ telemetry }) {
 				</div>
 
 				{/* Middle cards below */}
-				<div style={{ display: "flex", gap: "1.25vw" }}>
-					<Card title="Pressure" style={{ width: "16.667vw", flexShrink: 0 }}>
-						<table style={{ fontSize: "0.938vw", fontWeight: "bold", width: "100%" }} className="INA219Table">
+				<div style={{ display: "flex", gap: "1.5vw" }}>
+					<Card title="Pressure" style={{ width: "19.992vw", flexShrink: 0 }}>
+						<table style={{ fontSize: "1.1256vw", fontWeight: "bold", width: "100%" }} className="INA219Table">
 							<thead>
 								<tr>
 									<th style={{ width: "55%" }}>INA219</th>
@@ -81,10 +81,10 @@ export function TopRow({ telemetry }) {
 						</table>
 					</Card>
 
-					<Card title="LIM Temperature" style={{ width: "18.056vw", flexShrink: 0}}>
+					<Card title="LIM Temperature" style={{ width: "21.667vw", flexShrink: 0}}>
 						<table style={{ width: "100%" }} className="TempTable">
 							<thead>
-								<tr style = {{fontSize: "1vw"}}>
+								<tr style = {{fontSize: "1.2vw"}}>
 									<th style={{ width: "15%" }}>Th#</th>
 									<th style={{ width: "35%" }}>Temp</th>
 									<th style={{ width: "15%" }}>Th#</th>
@@ -108,15 +108,15 @@ export function TopRow({ telemetry }) {
 			</div>
 
 			{/* RIGHT COLUMN — Other Info spans full height */}
-			<Card title="Other Info" style={{ width: "34.722vw", flexShrink: 0, alignSelf: "stretch" }}>
+			<Card title="Other Info" style={{ width: "41.664vw", flexShrink: 0, alignSelf: "stretch" }}>
 				<div style={{
 					background: "#2f2740", 
 					color: "#f0e6f2", 
 					borderRadius: "0.833vw",
 					padding: "0 1.042vw", 
 					fontWeight: "bold", 
-					fontSize: "1.01vw", 
-					lineHeight: 2.5,
+					fontSize: "1.0vw", 
+					lineHeight: 3,
 				}}>
 					<div className="OtherInfoTable">
 						<table style={{ width: "100%" }}>

@@ -38,7 +38,7 @@ td {
 .TempTable {
     border-collapse: separate;
     border-spacing: 0.2vw 0;
-    font-size: 1.111vw;  /* was 16px */
+    font-size: 1.3vw;  /* was 16px */
     font-weight: bold;
     line-height: 2.5;
     text-align: center;
@@ -47,7 +47,7 @@ td {
 
 .INA219Table {
     border-collapse: separate;
-    border-spacing: 0.4vw 0;
+    border-spacing: 0.48vw 0;
 }
 
 .INA219Table th {

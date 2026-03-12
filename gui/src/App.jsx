@@ -269,7 +269,7 @@ export default function App() {
 				<Header podStates={podStates} />
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
 				padding: "1.25vw", display: "flex", flexDirection: "column",
-				gap: "1.25vw", alignItems: "center",}}>
+				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} />
 					<BottomRow consoleLogs={consoleLogs}/>
 				</div>		

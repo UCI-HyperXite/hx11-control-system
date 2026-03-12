@@ -4,19 +4,19 @@ import { Card } from "./Card";
 export function BottomRow({consoleLogs = [] }) {
 	const bottomRowStyle = {
 		display: "flex",
-		gap: "1.25vw",
-		width: "74.583vw",
+		gap: "1.5vw",
 		marginTop: "0.2vw",
+		width: "86.49vw"
 	};
 
 	return (
 		<div style={bottomRowStyle}>
-			<Card title="Console" style={{ height: "27vw", width: "20.833vw", flexShrink: 0}}>
+			<Card title="Console" style={{ height: "32.4vw", width: "24.99vw", flexShrink: 0}}>
 				<div style={{
-						height: "22.75vw",
+						height: "27.35vw",
 						background: "#2f2740",
 						color: "#f0e6f2",
-						borderRadius: "0.833vw",
+						borderRadius: "0.993vw",
 						overflowY: "auto",
 						display: "flex",
 						flexDirection: "column",
@@ -24,16 +24,16 @@ export function BottomRow({consoleLogs = [] }) {
 						overflow: "hidden",
 						justifyContent: "center",
                         alignItems: "center",
-						fontSize: "1.164vw",
-						gap: "0.278vw"
+						fontSize: "1.397vw",
+						gap: "0.333vw"
 					}}
 				>
 					<div
 						style={{
 							position: "absolute",
-							top: "1.042vw",
-							left: "1.042vw",
-							fontSize: "1.564vw"
+							top: "1.25vw",
+							left: "1.25vw",
+							fontSize: "1.868vw"
 						}}
 					>
 						&lt;&lt;
@@ -41,17 +41,17 @@ export function BottomRow({consoleLogs = [] }) {
 
 				<div
 					style={{
-					marginTop: "5vw",
+					marginTop: "6vw",
 					flex: 1,
 					overflowY: "auto",
-					padding: "0 0.833vw 0.556vw 0.833vw",
+					padding: "0 0.993vw 0.667vw 0.993vw",
 					display: "flex",
 					flexDirection: "column",
 					gap: 4,
            		 }}>
 				{consoleLogs.length === 0 ? (
 
-				<div style={{ color: "#a080b0", fontSize: "1.164vw", fontStyle: "italic" }}>
+				<div style={{ color: "#a080b0", fontSize: "1.394vw", fontStyle: "italic" }}>
 					Waiting for connection...
 				</div>
 
@@ -60,13 +60,13 @@ export function BottomRow({consoleLogs = [] }) {
                 <div
                   key={i}
                   style={{
-                    fontSize: "1.164vw",
+                    fontSize: "1.394vw",
                     fontFamily: "monospace",
                     color: log.includes("✓") ? "#7effa0"
                          : log.includes("failed") || log.includes("error") ? "#ff8080"
                          : "#f0e6f2",
                     borderBottom: "1px solid #3d3050",
-                    paddingBottom: "0.208vw",
+                    paddingBottom: "0.25vw",
                   }}
                 >
                   {log}
@@ -74,35 +74,6 @@ export function BottomRow({consoleLogs = [] }) {
               ))
             )}
           </div>
-										
-			{/* <div // the lines in the Console segment
-				style={{
-					width: "95%",
-					height: 2,
-					background: "#e1b9e9"
-				}}
-			/>
-			<div
-				style={{
-					width: "95%",
-					height: 2,
-					background: "#e1b9e9"
-				}}
-			/>
-			<div
-				style={{
-					width: "95%",
-					height: 2,
-					background: "#e1b9e9"
-				}}
-			/>
-			<div
-				style={{
-					width: "95%",
-					height: 2,
-					background: "#e1b9e9"
-				}}
-			/> */}
 		</div>
 
 			</Card>
@@ -110,16 +81,15 @@ export function BottomRow({consoleLogs = [] }) {
 			<Card
 				title="HV Battery"
 				style={{
-					height: "27vw",
-					width:  "50vw",
+					height: "32.4vw",
+					width:  "60vw",
 					flexShrink: 0,
-					padding: "1.111vw",
-					fontSize:  "1.0vw"
+					padding: "1.332vw",
 				}}
 			>
 				<div style={{ height: "100%", width: "100%", overflowX: "hidden" }}>
 					
-						<table style={{height: "100%", width: "100%", tableLayout: "fixed", fontSize: "0.833vw", lineHeight: "1.5vw", borderCollapse: "separate" }}>
+						<table style={{height: "100%", width: "100%", tableLayout: "fixed", fontSize: "1vw", lineHeight: "1.8vw", borderCollapse: "separate" }}>
 							<tr >
 								<th>Pack</th>
 								<th>Cell 0</th>
@@ -150,7 +120,7 @@ export function BottomRow({consoleLogs = [] }) {
 									<td
 									key={colIndex}
 									style={{
-										padding: "0.069vw 0.2vw",
+										padding: "0.083vw 0.24vw",
 										// backgroundColor: isHighlighted ? "red" : isFirstRow ? "green" : undefined,
 										backgroundColor: isFirstColumn ? undefined: "white",
 										fontWeight: isFirstColumn ? "bold" : "normal"

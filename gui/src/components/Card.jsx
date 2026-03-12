@@ -5,10 +5,10 @@ export function Card({ title, children, style = {} }) {
 		<div
 			style={{
 				background: "#eadfd6",
-				borderRadius: "0.833vw",
-				padding: "0.833vw",
+				borderRadius: "1vw",
+				padding: "1vw",
 				boxSizing: "border-box",
-				boxShadow: "inset 0 0.139vw 0 rgba(0,0,0,0.03)",
+				boxShadow: "inset 0 0.167vw 0 rgba(0,0,0,0.03)",
 				display: "flex",          // add
             flexDirection: "column",  // add
 				...style,
@@ -16,9 +16,9 @@ export function Card({ title, children, style = {} }) {
 		>
 			{title && (
 				<div style={{
-					fontSize: "1.111vw",
+					fontSize: "1.331vw",
 					color: "#2b2b2b",
-					marginBottom: "0.556vw",
+					marginBottom: "0.67vw",
 					fontWeight: 700,
 					textAlign: "left",
 				}}>
