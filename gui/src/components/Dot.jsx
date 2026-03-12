@@ -1,6 +1,6 @@
 import React from "react";
 
-export function Dot({ size = 30, style }) {
+export function Dot({ size = "2.222vw", style }) {
 	return (
 		<div
 			style={{

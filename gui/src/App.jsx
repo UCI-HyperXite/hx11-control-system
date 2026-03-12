@@ -2,7 +2,6 @@ import React from "react";
 import "./App.css";
 import { Header } from "./components/Header";
 import { TopRow } from "./components/TopRow";
-import { MiddleRow } from "./components/MiddleRow";
 import { BottomRow } from "./components/BottomRow";
 import { Footer } from "./components/Footer";
 
@@ -46,6 +45,7 @@ export default function App() {
     limVoltage: "0.00",
     limCurrent: "0.00",
     battVoltage: "0.00",
+	lvbattVoltage: "0.00",
     battCurrent: "0.00",
     battSoC: "0.00",
     battTemp: "0.00",
@@ -109,25 +109,25 @@ export default function App() {
 		setConsoleLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
   	}
 
-	function downloadCSV() {
-		const rows = csvRowsRef.current;
-		if (rows.length === 0) {
-			addLog("No data to download yet.");
-			return;
-		}
-		const headers = Object.keys(rows[0]).join(",");
-		const body = rows.map(r => Object.values(r).join(",")).join("\n");
-		const csv = `${headers}\n${body}`;
+	// function downloadCSV() {
+	// 	const rows = csvRowsRef.current;
+	// 	if (rows.length === 0) {
+	// 		addLog("No data to download yet.");
+	// 		return;
+	// 	}
+	// 	const headers = Object.keys(rows[0]).join(",");
+	// 	const body = rows.map(r => Object.values(r).join(",")).join("\n");
+	// 	const csv = `${headers}\n${body}`;
 
-		const blob = new Blob([csv], { type: "text/csv" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `telemetry_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
-		a.click();
-		URL.revokeObjectURL(url);
-		addLog(`Downloaded ${rows.length} rows as CSV ✓`);
-	}
+	// 	const blob = new Blob([csv], { type: "text/csv" });
+	// 	const url = URL.createObjectURL(blob);
+	// 	const a = document.createElement("a");
+	// 	a.href = url;
+	// 	a.download = `telemetry_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+	// 	a.click();
+	// 	URL.revokeObjectURL(url);
+	// 	addLog(`Downloaded ${rows.length} rows as CSV ✓`);
+	// }
 
 	async function connectSerial(){
 		try{
@@ -177,6 +177,7 @@ export default function App() {
 							// limVoltage: data.limVoltage ?? prev.limVoltage,
 							// limCurrent: data.limCurrent ?? prev.limCurrent,
 							// battVoltage: data.battVoltage ?? prev.battVoltage,
+							// lvbattVoltage: data.lvbattVoltage ?? prev.lvbattVoltage,
 							// battCurrent: data.battCurrent ?? prev.battCurrent,
 							// battSoC: data.battSoC ?? prev.battSoC,
 							// battTemp: data.battTemp ?? prev.battTemp,
@@ -236,88 +237,43 @@ export default function App() {
 		}
 	}
 
-	const containerStyle = {
-		minHeight: "90vh",
-		background: "#5d3b73",
-		padding: 0,
-		color: "#1f1f1f",
-		display: "flex",
-		flexDirection: "column",
-		fontFamily: "Arial"
-	};
-
-	const contentStyle = {
-		padding: 18,
-		display: "flex",
-		flexDirection: "column",
-	};
-
-	
-
 	return (
-		<div style={containerStyle}>
-			{/* <div style={{ padding: "10px 18px", background: "#3d2550", textAlign: "center", display: "flex", gap: 12, justifyContent: "center" }}>
-				{!isConnected ? (
-					<button
-						onClick={connectSerial}
-						style={{
-							padding: "8px 24px",
-							background: "#359D43",
-							color: "white",
-							border: "none",
-							borderRadius: 4,
-							cursor: "pointer",
-							fontWeight: "bold",
-							fontSize: 14
-						}}
-					>
-						Connect Serial
-					</button>
-				) : (
-					<button
-						onClick={downloadCSV}
-						style={{
-							padding: "8px 24px",
-							background: "#3DADFF",
-							color: "white",
-							border: "none",
-							borderRadius: 4,
-							cursor: "pointer",
-							fontWeight: "bold",
-							fontSize: 14
-						}}
-					>
-						Download CSV
-					</button>
+		<div style={{ 
+			display: "flex",
+			flexDirection: "column",
+			height: "100vh",
+			width: "100vw",
+			fontFamily: "Arial, sans-serif",
+			color: "#1f1f1f",
+			background: "#5d3b73",
+			overflow: "hidden" }}>
+				{!isConnected && (
+					<div style={{ padding: "10px 18px", background: "#5d3b73", textAlign: "center" }}>
+						<button
+							onClick={connectSerial}
+							style={{
+								padding: "8px 24px",
+								background: "#359D43",
+								color: "white",
+								border: "none",
+								borderRadius: 4,
+								cursor: "pointer",
+								fontWeight: "bold",
+								fontSize: 14
+							}}
+						>
+							Connect Serial
+						</button>
+					</div>
 				)}
-			</div> */}
-			{!isConnected && (
-            <div style={{ padding: "10px 18px", background: "#3d2550", textAlign: "center" }}>
-                <button
-                    onClick={connectSerial}
-                    style={{
-                        padding: "8px 24px",
-                        background: "#359D43",
-                        color: "white",
-                        border: "none",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        fontWeight: "bold",
-                        fontSize: 14
-                    }}
-                >
-                    Connect Serial
-                </button>
-            </div>
-        	)}
-			<Header podStates={podStates} />
-			<div style={contentStyle}>
-				<TopRow telemetry={telemetry} />
-				<MiddleRow telemetry={telemetry} />
-				<BottomRow consoleLogs={consoleLogs}/>
-        		<Footer/>
-			</div>
+				<Header podStates={podStates} />
+				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
+				padding: "1.25vw", display: "flex", flexDirection: "column",
+				gap: "1.25vw", alignItems: "center",}}>
+					<TopRow telemetry={telemetry} />
+					<BottomRow consoleLogs={consoleLogs}/>
+				</div>		
+				<Footer/>
 		</div>
 	);
 }
-

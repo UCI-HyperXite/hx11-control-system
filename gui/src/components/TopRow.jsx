@@ -2,131 +2,158 @@ import React from "react";
 import { Card } from "./Card";
 
 export function TopRow({ telemetry }) {
-	const topRowStyle = {
-		display: "flex",
-		gap: 18,
-		marginBottom: -300,
-		flex: 1,
-	};
-
 	return (
-		<div style={topRowStyle}>
-			{/* left-top Pressure */}
-			<Card title=""
-				style={{height: 150, width: 180, flexShrink: 0, paddingTop: 11, fontWeight: "bold"}}
-			>
-				<div style={{ lineHeight: 2, display: "flex" }}>Time: {telemetry.time}</div>
-				<div style={{ lineHeight: 2, display: "flex" }}>Distance: {telemetry.distance} cm</div>
-				<div style={{ lineHeight: 2, display: "flex" }}>Position: {telemetry.position}</div>
-				<div style={{ lineHeight: 2, display: "flex" }}>Speed: {telemetry.speed}</div>
-			</Card>
+		<div style={{ 
+			display: "flex", 
+			gap: "1.25vw", 
+			width: "74.583vw", 
+			alignItems: "flex-start" 
+			}}>
 
-			{/* top-center Rotation */}
-			<Card title="Rotation" style={{ height: 150, width: 320, flexShrink: 0, fontWeight: "bold", paddingTop: 10, fontSize: 16}}>
-				<div style={{marginTop: -8, display: "flex", textAlign: "left"}}>
-					<div>
-						<div>Accel:</div>
-						<div style={{ marginLeft: 15, display: "flex", gap:20}}>
+			{/* LEFT COLUMN */}
+			<div style={{ 
+				display: "flex", 
+				flexDirection: "column", 
+				gap: "1.25vw", 
+				flexShrink: 0 }}>
+
+				{/* Top two cards */}
+				<div style={{ display: "flex", gap: "1.25vw" }}>
+					<Card style={{ 
+						height: "11vw", 
+						width: "12.5vw", 
+						flexShrink: 0, 
+						fontWeight: "bold", 
+						fontSize: "1.172vw", 
+						lineHeight: 2, 
+						paddingLeft: "1vw" }}>
+						<div>Time: {telemetry.time}</div>
+						<div>Distance: {telemetry.distance} cm</div>
+						<div>Position: {telemetry.position}</div>
+						<div>Speed: {telemetry.speed}</div>
+					</Card>
+
+					<Card title="Rotation" style={{ 
+						height: "11vw", 
+						width: "22.222vw", 
+						flexShrink: 0, 
+						fontSize: "1.111vw", 
+						fontWeight: "bold" }}>
+						<div style={{ marginTop: "-0.5vw" }}>Accel:</div>
+						<div style={{ marginLeft: "1.042vw", display: "flex", gap: "1.389vw" }}>
 							<div>X: {telemetry.accelerationx}</div>
 							<div>Y: {telemetry.accelerationy}</div>
 							<div>Z: {telemetry.accelerationz} m/s²</div>
 						</div>
-					</div>
-				</div>
-				<div style={{marginTop: 8, textAlign: "left"}}>
-						<div>Gyro: </div>
-						<div style={{ marginLeft: 15, display: "flex", gap:20}}>
+						<div style={{ marginTop: "0.556vw" }}>Gyro:</div>
+						<div style={{ marginLeft: "1.042vw", display: "flex", gap: "1.389vw" }}>
 							<div>X: {telemetry.gyrox}</div>
 							<div>Y: {telemetry.gyroy}</div>
-							<div> Z: {telemetry.gyroz} rad/s</div>
+							<div>Z: {telemetry.gyroz} rad/s</div>
 						</div>
+					</Card>
 				</div>
-			</Card>
 
-			{/* right-top Other Info */}
-			<Card
-				title="OTHER INFO"
-				style={{ height: 440, width: 500, flexShrink: 0, display: "flex", flexDirection: "column", padding : 12 }}
-			>
-				<div
-					style={{
-						height: 380,
-						background: "#2f2740",
-						color: "#f0e6f2",
-						borderRadius: 12,
-						flexShrink: 0,
-						paddingLeft: 15,
-						paddingRight: 15,
-						fontWeight: "bold",
-						fontSize: 16.5,
-						lineHeight: 2.5,
-					}}
-				>
-					
+				{/* Middle cards below */}
+				<div style={{ display: "flex", gap: "1.25vw" }}>
+					<Card title="Pressure" style={{ width: "16.667vw", flexShrink: 0 }}>
+						<table style={{ fontSize: "0.938vw", fontWeight: "bold", width: "100%" }} className="INA219Table">
+							<thead>
+								<tr>
+									<th style={{ width: "55%" }}>INA219</th>
+									<th style={{ width: "45%" }}>Value</th>
+								</tr>
+							</thead>
+							<tbody>
+								{[
+									["vbus1:", `${telemetry.vbus1} mV`],
+									["vShunt1:", `${telemetry.vShunt1} mV`],
+									["current1:", `${telemetry.current1} mA`],
+									["power1:", `${telemetry.power1} mW`],
+									["vbus2:", `${telemetry.vbus2} mV`],
+									["vShunt2:", `${telemetry.vShunt2} mV`],
+									["current2:", `${telemetry.current2} mA`],
+									["power2:", `${telemetry.power2} mW`],
+								].map(([label, value]) => (
+									<tr key={label}><td>{label}</td><td>{value}</td></tr>
+								))}
+							</tbody>
+						</table>
+					</Card>
+
+					<Card title="LIM Temperature" style={{ width: "18.056vw", flexShrink: 0}}>
+						<table style={{ width: "100%" }} className="TempTable">
+							<thead>
+								<tr style = {{fontSize: "1vw"}}>
+									<th style={{ width: "15%" }}>Th#</th>
+									<th style={{ width: "35%" }}>Temp</th>
+									<th style={{ width: "15%" }}>Th#</th>
+									<th style={{ width: "35%" }}>Temp</th>
+								</tr>
+							</thead>
+							<tbody>
+								{[1, 2, 3, 4].map(i => (
+									<tr key={i}>
+										<td>{i}</td>
+										<td>{telemetry[`therm${i}`]} °C</td>
+										<td>{i + 4}</td>
+										<td>{telemetry[`therm${i + 4}`]} °C</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</Card>
+				</div>
+
+			</div>
+
+			{/* RIGHT COLUMN — Other Info spans full height */}
+			<Card title="Other Info" style={{ width: "34.722vw", flexShrink: 0, alignSelf: "stretch" }}>
+				<div style={{
+					background: "#2f2740", 
+					color: "#f0e6f2", 
+					borderRadius: "0.833vw",
+					padding: "0 1.042vw", 
+					fontWeight: "bold", 
+					fontSize: "1.01vw", 
+					lineHeight: 2.5,
+				}}>
 					<div className="OtherInfoTable">
-                        <table>
-                            <tr>
-                                <th style={{ width: 150 }}></th>
-								<th style={{ width: 75 }}>Min</th>
-                                <th style={{ width: 75 }}>Value</th>
-								<th style={{ width: 75 }}>Max</th>
-								<th style={{ width: 75 }}>Unit</th>
-
-                            </tr>
-                            <tr>
-                                <td>LIM Voltage:</td>
-								<td></td>
-                                <td>{telemetry.limVoltage}</td>
-								<td></td>
-								<td>V</td>
-                            </tr>
-							<tr>
-                                <td>LIM Current:</td>
-								<td></td>
-                                <td>{telemetry.limCurrent}</td>
-								<td></td>
-								<td>A</td>
-                            </tr>
-                            <tr>
-                                <td>Batt Voltage:</td>
-								<td></td>
-                                <td>{telemetry.battVoltage}</td>
-								<td></td>
-								<td>V</td>
-                            </tr>
-							<tr>
-                                <td>Batt Current:</td>
-								<td></td>
-                                <td>{telemetry.battCurrent}</td>
-								<td></td>
-								<td>A</td>
-                            </tr>
-							<tr>
-                                <td>Batt SoC:</td>
-								<td></td>
-                                <td>{telemetry.battSoC}</td>
-								<td></td>
-								<td>%</td>
-                            </tr>
-							<tr>
-                                <td>Batt Temp:</td>
-								<td></td>
-                                <td>{telemetry.battTemp}</td>
-								<td></td>
-								<td>°C</td>
-                            </tr>
-							<tr>
-                                <td>IMD Status:</td>
-								<td></td>
-                                <td>{telemetry.imdStatus}</td>
-								<td></td>
-								<td></td>
-                            </tr>
-
-                        </table>
-                    </div>
+						<table style={{ width: "100%" }}>
+							<thead>
+								<tr>
+									<th style={{ width: "40%" }}></th>
+									<th style={{ width: "15%" }}>Min</th>
+									<th style={{ width: "15%" }}>Value</th>
+									<th style={{ width: "15%" }}>Max</th>
+									<th style={{ width: "15%" }}>Unit</th>
+								</tr>
+							</thead>
+							<tbody>
+								{[
+									["LIM Voltage:", telemetry.limVoltage, "V"],
+									["LIM Current:", telemetry.limCurrent, "A"],
+									["HV Batt Volt (avg):", telemetry.battVoltage, "V"],
+									["LV Batt Voltage", telemetry.lvbattVoltage, "V"],
+									["HV Batt Current:", telemetry.battCurrent, "A"],
+									["HV Batt SoC:", telemetry.battSoC, "%"],
+									["Batt Temp:", telemetry.battTemp, "°C"],
+									["IMD Status:", telemetry.imdStatus, ""],
+								].map(([label, value, unit]) => (
+									<tr key={label}>
+										<td>{label}</td>
+										<td></td>
+										<td>{value}</td>
+										<td></td>
+										<td>{unit}</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</Card>
+
 		</div>
 	);
 }

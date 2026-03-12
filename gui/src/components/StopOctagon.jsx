@@ -18,7 +18,7 @@ export function StopOctagon({ onClick }) {
 
 	return (
 		<div style={{ cursor: "pointer" }} onClick={onClick}>
-			<svg width="110" height="110" viewBox="0 0 100 100" style={{ pointerEvents: "none" }}>
+			<svg width="7.639vw" height="7.639vw" viewBox="0 0 100 100" style={{ pointerEvents: "none" }}>
 				<polygon
 					points="30,5 70,5 95,30 95,70 70,95 30,95 5,70 5,30"
 					fill={fillColor}

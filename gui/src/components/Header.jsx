@@ -5,17 +5,16 @@ import HX_logo from "../assets/HX_logo.jpg";
 export function Header({ podStates }) {
 	const headerStyle = {
 		display: "flex",
-		alignItems: "center",
 		justifyContent: "space-between",
+		alignItems: "center",
 		background: "#020203",
-		padding: "18px 18px",
-		marginBottom: 0,
+		padding: "1.25vw",
 	};
 
 	const titleStyle = {
 		display: "flex",
 		alignItems: "center",
-		gap: 12,
+		gap: "0.833vw",
 		color: "#fff",
 	};
 
@@ -25,53 +24,47 @@ export function Header({ podStates }) {
 			<div style={titleStyle}>
 				<div
 					style={{
-						width: 44,
-						height: 44,
+						width: "3.056vw",
+						height: "3.056vw",
 						background: "#fff",
-						borderRadius: 8,
+						borderRadius: "0.556vw",
 						display: "flex",
 						alignItems: "center",
 						justifyContent: "center",
 						color: "#5d3b73",
+						overflow: "hidden",
 						fontWeight: 700,
 					}}
 				>
-					<img src={HX_logo} alt="HX Logo" style = {{width: 50, height: 30, objectFit: "contain"}}/>
+					<img src={HX_logo} alt="HX Logo" style = {{width: "3.472v", height: "2.083vw", objectFit: "contain"}}/>
 				</div>
 				<div>
-					<div style={{ fontSize: 28, fontWeight: 700 }}>HyperXite 11</div>
+					<div style={{ fontSize: "1.944vw", fontWeight: 700 }}>HyperXite 11</div>
 				</div>
 			</div>
 
-			<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-				<div
-					style={{
-						width: 500,
-						background: "#f7f7f7",
-						padding: "6px 12px",
-						borderRadius: 999,
-						color: "#222",
-						fontWeight: 700,
-					}}
-				>
-					<div
-						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: 10,
-							fontSize: 20,
-						}}
-					>
+			<div style={{
+					background: "#f7f7f7",
+					padding: "0.417vw 0.833vw",
+					borderRadius: "69vw", 
+					color: "#222", 
+					fontWeight: 700,
+					display: "flex", 
+					alignItems: "center", 
+					gap: "0.694vw",
+					fontSize: "1.389vw", 
+					minWidth: "34.722vw",
+				}}>
 						POD STATE
 						<div
 							style={{
-								paddingLeft: "30px",
+								paddingLeft: "2.083vw",
 								display: "flex",
-								gap: 20,
+								gap: "1.389vw",
 								alignItems: "center",
 							}}
 						>
-							<Dot style={{ backgroundColor: "#FC95AD", border: "#F000FF" }} />
+							<Dot style={{ backgroundColor: "#FC95AD", border: "#F000FF", }} />
 							<Dot style={{ backgroundColor: "#3DADFF" }} />
 							<Dot style={{ backgroundColor: "#FFCD29" }} />
 							<Dot style={{ backgroundColor: "#359D43" }} />
@@ -82,9 +75,9 @@ export function Header({ podStates }) {
 					</div>
 				</div>
 			</div>
-			</div>
 			
-		</div>
+			
+	
 		
 	);
 }

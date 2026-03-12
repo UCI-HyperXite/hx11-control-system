@@ -4,36 +4,36 @@ import { Card } from "./Card";
 export function BottomRow({consoleLogs = [] }) {
 	const bottomRowStyle = {
 		display: "flex",
-		gap: 18,
-		marginTop: 5,
-		marginBottom: 0,
+		gap: "1.25vw",
+		width: "74.583vw",
+		marginTop: "0.2vw",
 	};
 
 	return (
 		<div style={bottomRowStyle}>
-			{/* bottom-left empty spacer */}
-			{/* <div style={{ marginTop: 100, height: 10,width: 200, flexShrink: 0 }}>
-			</div> */}
-			<Card title="Console" style={{ height: 337, width: 300, flexShrink: 0}}>
+			<Card title="Console" style={{ height: "27vw", width: "20.833vw", flexShrink: 0}}>
 				<div style={{
-						height: 270,
+						height: "22.75vw",
 						background: "#2f2740",
 						color: "#f0e6f2",
-						borderRadius: 12,
+						borderRadius: "0.833vw",
+						overflowY: "auto",
 						display: "flex",
 						flexDirection: "column",
 						position: "relative",
 						overflow: "hidden",
 						justifyContent: "center",
                         alignItems: "center",
-						gap: 20,
+						fontSize: "1.164vw",
+						gap: "0.278vw"
 					}}
 				>
 					<div
 						style={{
 							position: "absolute",
-							top: 15,
-							left: 15
+							top: "1.042vw",
+							left: "1.042vw",
+							fontSize: "1.564vw"
 						}}
 					>
 						&lt;&lt;
@@ -41,17 +41,17 @@ export function BottomRow({consoleLogs = [] }) {
 
 				<div
 					style={{
-					marginTop: 36,
+					marginTop: "5vw",
 					flex: 1,
 					overflowY: "auto",
-					padding: "0 12px 8px 12px",
+					padding: "0 0.833vw 0.556vw 0.833vw",
 					display: "flex",
 					flexDirection: "column",
 					gap: 4,
            		 }}>
 				{consoleLogs.length === 0 ? (
 
-				<div style={{ color: "#a080b0", fontSize: 11, fontStyle: "italic" }}>
+				<div style={{ color: "#a080b0", fontSize: "1.164vw", fontStyle: "italic" }}>
 					Waiting for connection...
 				</div>
 
@@ -60,13 +60,13 @@ export function BottomRow({consoleLogs = [] }) {
                 <div
                   key={i}
                   style={{
-                    fontSize: 11,
+                    fontSize: "1.164vw",
                     fontFamily: "monospace",
                     color: log.includes("✓") ? "#7effa0"
                          : log.includes("failed") || log.includes("error") ? "#ff8080"
                          : "#f0e6f2",
                     borderBottom: "1px solid #3d3050",
-                    paddingBottom: 3,
+                    paddingBottom: "0.208vw",
                   }}
                 >
                   {log}
@@ -110,16 +110,17 @@ export function BottomRow({consoleLogs = [] }) {
 			<Card
 				title="HV Battery"
 				style={{
-					height: 335,
-					width: 720,
+					height: "27vw",
+					width:  "50vw",
 					flexShrink: 0,
-					padding: 16,
+					padding: "1.111vw",
+					fontSize:  "1.0vw"
 				}}
 			>
-				<div>
-					<div className="HVBatteryTable">
-						<table>
-							<tr style={{width: 60, fontSize: 12 }}>
+				<div style={{ height: "100%", width: "100%", overflowX: "hidden" }}>
+					
+						<table style={{height: "100%", width: "100%", tableLayout: "fixed", fontSize: "0.833vw", lineHeight: "1.5vw", borderCollapse: "separate" }}>
+							<tr >
 								<th>Pack</th>
 								<th>Cell 0</th>
 								<th>Cell 1</th>
@@ -149,7 +150,7 @@ export function BottomRow({consoleLogs = [] }) {
 									<td
 									key={colIndex}
 									style={{
-										padding: "1px 11.5px",
+										padding: "0.069vw 0.2vw",
 										// backgroundColor: isHighlighted ? "red" : isFirstRow ? "green" : undefined,
 										backgroundColor: isFirstColumn ? undefined: "white",
 										fontWeight: isFirstColumn ? "bold" : "normal"
@@ -163,7 +164,6 @@ export function BottomRow({consoleLogs = [] }) {
 							))}
 							
 						</table>
-					</div>
 					
 				</div>
 			</Card>
