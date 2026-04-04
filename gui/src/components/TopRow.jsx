@@ -20,65 +20,84 @@ export function TopRow({ telemetry }) {
 				{/* Top two cards */}
 				<div style={{ display: "flex", gap: "1.25vw" }}>
 					<Card style={{ 
-						height: "13.2vw", 
+						height: "13.7vw", 
 						width: "15vw", 
 						flexShrink: 0, 
 						fontWeight: "bold", 
 						fontSize: "1.406vw", 
 						lineHeight: 2, 
-						paddingLeft: "1.2vw" }}>
+						paddingLeft: "1.2vw",
+						paddingTop: "1.2vw" }}>
 						<div>Time: {telemetry.time}</div>
 						<div>Distance: {telemetry.distance} cm</div>
 						<div>Position: {telemetry.position}</div>
 						<div>Speed: {telemetry.speed}</div>
 					</Card>
 
-					<Card title="Rotation" style={{ 
-						height: "13.2vw", 
+					<Card title="Rotation" 
+					style={{ 
 						width: "26.667vw", 
-						flexShrink: 0, 
-						fontSize: "1.332vw", 
-						fontWeight: "bold" }}>
-						<div style={{ marginTop: "-0.6vw" }}>Accel:</div>
-						<div style={{ marginLeft: "1.2504vw", display: "flex", gap: "1.667vw" }}>
-							<div>X: {telemetry.accelerationx}</div>
-							<div>Y: {telemetry.accelerationy}</div>
-							<div>Z: {telemetry.accelerationz} m/s²</div>
-						</div>
-						<div style={{ marginTop: "0.556vw" }}>Gyro:</div>
-						<div style={{ marginLeft: "1.2504vw", display: "flex", gap: "1.667vw" }}>
-							<div>X: {telemetry.gyrox}</div>
-							<div>Y: {telemetry.gyroy}</div>
-							<div>Z: {telemetry.gyroz} rad/s</div>
-						</div>
+						flexShrink: 0,
+						paddingBottom: "0.5vw"
+					 }}>
+					<div className="rotTable" style={{ marginTop: "-1vw" }}>
+						<table style={{ fontSize: "1.4vw", fontWeight: "bold", width: "100%" }}>
+							<thead>
+								<tr>
+									<th style={{ width: "55%" }}>Accel</th>
+									<th style={{ width: "45%" }}>Gyro</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr>
+									<td>
+										<div>X: {telemetry.accelerationx} m/s²</div>
+										<div>Y: {telemetry.accelerationy} m/s²</div>
+										<div>Z: {telemetry.accelerationz} m/s²</div>
+									</td>
+									<td>
+										<div>X: {telemetry.gyrox} rad/s</div>
+										<div>Y: {telemetry.gyroy} rad/s</div>
+										<div>Z: {telemetry.gyroz} rad/s</div>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
 					</Card>
 				</div>
 
 				{/* Middle cards below */}
 				<div style={{ display: "flex", gap: "1.5vw" }}>
 					<Card title="Pressure" style={{ width: "19.992vw", flexShrink: 0 }}>
-						<table style={{ fontSize: "1.1256vw", fontWeight: "bold", width: "100%" }} className="INA219Table">
-							<thead>
-								<tr>
-									<th style={{ width: "55%" }}>INA219</th>
-									<th style={{ width: "45%" }}>Value</th>
-								</tr>
-							</thead>
-							<tbody>
-								{[
-									["vbus1:", `${telemetry.vbus1} mV`],
-									["vShunt1:", `${telemetry.vShunt1} mV`],
-									["current1:", `${telemetry.current1} mA`],
-									["power1:", `${telemetry.power1} mW`],
-									["vbus2:", `${telemetry.vbus2} mV`],
-									["vShunt2:", `${telemetry.vShunt2} mV`],
-									["current2:", `${telemetry.current2} mA`],
-									["power2:", `${telemetry.power2} mW`],
-								].map(([label, value]) => (
-									<tr key={label}><td>{label}</td><td>{value}</td></tr>
-								))}
-							</tbody>
-						</table>
+						<div style={{ marginTop: "-0.5vw" }}>
+							<table style={{ fontSize: "1.1256vw", fontWeight: "bold", width: "100%", }} className="INA219Table">
+								<thead>
+									<tr style={{fontSize: "1.3vw"}}>
+										<th style={{ width: "55%" }}>INA219</th>
+										<th style={{ width: "45%" }}>Value</th>
+									</tr>
+								</thead>
+								<tbody>
+									{[
+										["vbus1:", `${telemetry.vbus1} mV`],
+										["vShunt1:", `${telemetry.vShunt1} mV`],
+										["current1:", `${telemetry.current1} mA`],
+										["power1:", `${telemetry.power1} mW`],
+										["vbus2:", `${telemetry.vbus2} mV`],
+										["vShunt2:", `${telemetry.vShunt2} mV`],
+										["current2:", `${telemetry.current2} mA`],
+										["power2:", `${telemetry.power2} mW`],
+										// ["vbus3:", `${telemetry.vbus3} mV`],
+										// ["vShunt3:", `${telemetry.vShunt3} mV`],
+										// ["current3:", `${telemetry.current3} mA`],
+										// ["power3:", `${telemetry.power3} mW`],
+									].map(([label, value]) => (
+										<tr key={label}><td>{label}</td><td>{value}</td></tr>
+									))}
+								</tbody>
+							</table>
+						</div>
 					</Card>
 
 					<Card title="LIM Temperature" style={{ width: "21.667vw", flexShrink: 0}}>
@@ -131,12 +150,14 @@ export function TopRow({ telemetry }) {
 							</thead>
 							<tbody>
 								{[
-									["LIM Voltage:", telemetry.limVoltage, "V"],
-									["LIM Current:", telemetry.limCurrent, "A"],
+									
 									["HV Batt Volt (avg):", telemetry.battVoltage, "V"],
-									["LV Batt Voltage", telemetry.lvbattVoltage, "V"],
 									["HV Batt Current:", telemetry.battCurrent, "A"],
 									["HV Batt SoC:", telemetry.battSoC, "%"],
+									["LIM Voltage:", telemetry.limVoltage, "V"],
+									["LIM Current:", telemetry.limCurrent, "A"],
+									["LV Batt Voltage", telemetry.lvbattVoltage, "V"],
+									
 									["Batt Temp:", telemetry.battTemp, "°C"],
 									["IMD Status:", telemetry.imdStatus, ""],
 								].map(([label, value, unit]) => (

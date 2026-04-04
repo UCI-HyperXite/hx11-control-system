@@ -104,30 +104,29 @@ export default function App() {
   	const portRef = React.useRef(null);
 	const csvRowsRef = React.useRef([]); // CSV accumulator
 
-	function addLog(message) {
-		const timestamp = new Date().toLocaleTimeString();
-		setConsoleLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
-  	}
+		function addLog(message) {
+			const timestamp = new Date().toLocaleTimeString();
+			setConsoleLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
+		}
 
-	// function downloadCSV() {
-	// 	const rows = csvRowsRef.current;
-	// 	if (rows.length === 0) {
-	// 		addLog("No data to download yet.");
-	// 		return;
-	// 	}
-	// 	const headers = Object.keys(rows[0]).join(",");
-	// 	const body = rows.map(r => Object.values(r).join(",")).join("\n");
-	// 	const csv = `${headers}\n${body}`;
+	function downloadCSV() {
+		const rows = csvRowsRef.current;
+		// if (rows.length === 0) return;
 
-	// 	const blob = new Blob([csv], { type: "text/csv" });
-	// 	const url = URL.createObjectURL(blob);
-	// 	const a = document.createElement("a");
-	// 	a.href = url;
-	// 	a.download = `telemetry_${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
-	// 	a.click();
-	// 	URL.revokeObjectURL(url);
-	// 	addLog(`Downloaded ${rows.length} rows as CSV ✓`);
-	// }
+		const header = ["time", "therm1", "therm2", "therm3", "therm4"];
+		const csvContent = [
+			header.join(","),
+			...rows.map(r => header.map(k => r[k]).join(","))
+		].join("\n");
+
+		const blob = new Blob([csvContent], { type: "text/csv" });
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `therms_${Date.now()}.csv`;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
 
 	async function connectSerial(){
 		try{
@@ -165,7 +164,7 @@ export default function App() {
 						setTelemetry(prev => ({
 							...prev,
 							// time: data.time ?? prev.time,
-							distance: data.lidar_distance ?? prev.distance,
+							// distance: data.lidar_distance ?? prev.distance,
 							// position: data.position ?? prev.position,
 							// speed: data.speed ?? prev.speed,
 							// accelerationx: data.accelerationx ?? prev.accelerationx,
@@ -182,6 +181,7 @@ export default function App() {
 							// battSoC: data.battSoC ?? prev.battSoC,
 							// battTemp: data.battTemp ?? prev.battTemp,
 							// imdStatus: data.imdStatus ?? prev.imdStatus,
+							
 							// vbus1: data.vbus1 ?? prev.vbus1,
 							// vShunt1: data.vShunt1 ?? prev.vShunt1,
 							// current1: data.current1 ?? prev.current1,
@@ -205,6 +205,14 @@ export default function App() {
 							// therm7: data.therms?.[6]?.toFixed(2) ?? prev.therm7,
 							// therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
 						}));
+
+						csvRowsRef.current.push({
+							time: new Date().toISOString(),
+							therm1: data.therms?.[0]?.toFixed(2) ?? "",
+							therm2: data.therms?.[1]?.toFixed(2) ?? "",
+							therm3: data.therms?.[2]?.toFixed(2) ?? "",
+							therm4: data.therms?.[3]?.toFixed(2) ?? "",
+						});
 
 
 						if (data.pod_state !== undefined) {
@@ -249,6 +257,7 @@ export default function App() {
 			overflow: "hidden" }}>
 				{!isConnected && (
 					<div style={{ padding: "10px 18px", background: "#5d3b73", textAlign: "center" }}>
+					{!isConnected && (
 						<button
 							onClick={connectSerial}
 							style={{
@@ -264,7 +273,8 @@ export default function App() {
 						>
 							Connect Serial
 						</button>
-					</div>
+					)}
+				</div>
 				)}
 				<Header podStates={podStates} />
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
@@ -272,7 +282,25 @@ export default function App() {
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} />
 					<BottomRow consoleLogs={consoleLogs}/>
-				</div>		
+				</div>
+				<div style = {{textAlign: "center"}}>
+					<button
+						onClick={downloadCSV}
+						style={{
+							padding: "8px 24px",
+							background: "#3DADFF",
+							marginLeft: 8,
+							color: "white",
+							border: "none",
+							borderRadius: 4,
+							cursor: "pointer",
+							fontWeight: "bold",
+							fontSize: 14
+						}}
+					>
+						Export CSV
+					</button>
+				</div>	
 				<Footer/>
 		</div>
 	);

@@ -2,6 +2,20 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #5d3b73; }
 
+
+.rotTable th{
+  border-bottom: 2px solid black;
+}
+
+.rotTable th:nth-child(1), .rotTable td:nth-child(1) {
+    border-right: 2px solid black;
+}
+
+.rotTable td:nth-child(1),.rotTable td:nth-child(2){
+    border-top: 2px solid black;
+    background: #f0f0f0;
+}
+
 .OtherInfoTable{
     border: 2px transparent;
 }
@@ -11,6 +25,22 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; backg
 .OtherInfoTable td{
     border-top: 2px solid #eadfd6;
 }
+
+.OtherInfoTable td:nth-child(1){
+  text-align: left;
+  padding-left: 20px;
+}
+
+.OtherInfoTable tr:nth-child(4),
+.OtherInfoTable tr:nth-child(5){
+    color: rgb(194, 150, 150);
+}
+
+.OtherInfoTable tr:nth-child(4) td:nth-child(1),
+.OtherInfoTable tr:nth-child(5) td:nth-child(1){
+    padding-left: 35px;
+}
+
 
 th {
     border-bottom: 1px solid black;
@@ -62,3 +92,6 @@ td {
     background-color: #f0f0f0;
 }
 
+.INA219Table tr:nth-child(4) td{
+    border-bottom: 1px solid black;
+}

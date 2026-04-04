@@ -121,7 +121,8 @@ export function BottomRow({consoleLogs = [] }) {
 									key={colIndex}
 									style={{
 										padding: "0.083vw 0.24vw",
-										// backgroundColor: isHighlighted ? "red" : isFirstRow ? "green" : undefined,
+										fontSize: "1.2vw",
+										//backgroundColor: isHighlighted ? "red" : isFirstRow ? "green" : undefined,
 										backgroundColor: isFirstColumn ? undefined: "white",
 										fontWeight: isFirstColumn ? "bold" : "normal"
 									}}

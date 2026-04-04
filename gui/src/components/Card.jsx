@@ -16,10 +16,10 @@ export function Card({ title, children, style = {} }) {
 		>
 			{title && (
 				<div style={{
-					fontSize: "1.331vw",
+					fontSize: "1.4vw",
 					color: "#2b2b2b",
 					marginBottom: "0.67vw",
-					fontWeight: 700,
+					fontWeight: 650,
 					textAlign: "left",
 				}}>
 					{title}
