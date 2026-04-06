@@ -72,49 +72,49 @@ UART_HandleTypeDef huart7;
 osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
-  .stack_size = 1024 * 4, // tasks sizes too small
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
 const osThreadAttr_t mpuTask_attributes = {
   .name = "mpuTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for thermistorsTask */
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for INATask */
 osThreadId_t INATaskHandle;
 const osThreadAttr_t INATask_attributes = {
   .name = "INATask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for telemetryTask */
 osThreadId_t telemetryTaskHandle;
 const osThreadAttr_t telemetryTask_attributes = {
   .name = "telemetryTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 18 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for commandTask */
 osThreadId_t commandTaskHandle;
 const osThreadAttr_t commandTask_attributes = {
   .name = "commandTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for fsmTask */
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
@@ -178,6 +178,9 @@ typedef struct __attribute__((packed)) {
 	float pt_up, pt_down;         //ina219, left and right brake
 	float lv_batt;                //ina260
 	float hv_batt_temp, hv_batt;  //BMS
+	float batt_soc;               //Battery state of charge
+	float lim_volt, lim_curr;
+	float imd;  				  // IMD status
 	uint8_t pod_state;
 	char message[100];
 } SensorData;
@@ -948,13 +951,13 @@ void init_sensors(void) {
 
 	// INA
 	printf("INAs initializing...\r\n");
-    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-	    Error_Handler();
-    }
-
-    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-	    Error_Handler();
-    }
+//    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
+//	    Error_Handler();
+//    }
+//
+//    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
+//	    Error_Handler();
+//    }
 	printf("Finished INAs initialization.\r\n");
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
 }
@@ -1226,7 +1229,7 @@ void StartThermistorsTask(void *argument)
 	    uint32_t minutes = 0;
 	    uint32_t seconds = 0;
 	    uint32_t time_elapsed = 0;
-	    char uart_tx_buff[100];
+//	    char uart_tx_buff[100];
 
 	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 //	  memset(rawValues, 0, sizeof(rawValues));  // clear data
@@ -1279,7 +1282,7 @@ void StartINATask(void *argument)
 //
 //	  INA219_t ina219_1;
 //	  uint16_t vbus1, vshunt1, current1, power1;
-	  char uart_tx_buff[100];
+//	  char uart_tx_buff[100];
 //	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
 //		  Error_Handler();
 //	  }
@@ -1352,15 +1355,19 @@ void StartTelemetryTask(void *argument)
 	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
 	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 	  sensorData.start_marker = 0xAA;
-	  sensorData.lidar_dist = 10;
-	  sensorData.roll = 10;
-	  sensorData.pitch = 10;
+	  sensorData.lidar_dist = 13;
+	  sensorData.roll = 2;
+	  sensorData.pitch = 3;
 	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
-	  sensorData.pt_up = 10;
-	  sensorData.pt_down = 10;
-	  sensorData.lv_batt = 10;
-	  sensorData.hv_batt_temp = 10;
-	  sensorData.hv_batt = 10;
+	  sensorData.pt_up = 4;
+	  sensorData.pt_down = 5;
+	  sensorData.lv_batt = 6;
+	  sensorData.hv_batt_temp = 7;
+	  sensorData.batt_soc = 8;
+	  sensorData.lim_volt = 9;
+	  sensorData.lim_curr = 10;
+	  sensorData.hv_batt = 11;
+	  sensorData.imd = 12;
 	  sensorData.pod_state = 1;
 	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
 	  // DMA problem??
