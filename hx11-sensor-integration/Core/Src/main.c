@@ -72,49 +72,49 @@ UART_HandleTypeDef huart7;
 osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4, // tasks sizes too small
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
 const osThreadAttr_t mpuTask_attributes = {
   .name = "mpuTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for thermistorsTask */
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for INATask */
 osThreadId_t INATaskHandle;
 const osThreadAttr_t INATask_attributes = {
   .name = "INATask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for telemetryTask */
 osThreadId_t telemetryTaskHandle;
 const osThreadAttr_t telemetryTask_attributes = {
   .name = "telemetryTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for commandTask */
 osThreadId_t commandTaskHandle;
 const osThreadAttr_t commandTask_attributes = {
   .name = "commandTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for fsmTask */
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
-  .stack_size = 128 * 4,
+  .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
@@ -236,6 +236,9 @@ INA219_t ina219_left;
 INA219_t ina219_right;
 uint32_t object_distance;
 
+osMessageQueueId_t commandQueue;
+osMutexId_t sensorMutex;
+
 /* USER CODE END 0 */
 
 /**
@@ -276,6 +279,8 @@ int main(void)
 
   /* USER CODE END 2 */
 
+  commandQueue = osMessageQueueNew(10, sizeof(uint8_t), NULL);
+  sensorMutex = osMutexNew(NULL);
   /* Init scheduler */
   osKernelInitialize();
 
@@ -1000,13 +1005,13 @@ void pre_run_checklist(SensorData *data)
 
 bool fault_conditions(SensorData *data) {
 	// dynamics
-	if (data->roll >= 23.34 || data->pitch >= 23.34) return 0;
+	if (data->roll >= 23.34 || data->pitch >= 23.34) return 1;
 
 	// TODO: braking (pneumatics)
 
 	// LIM
 	for (int i = 0; i < THERMISTOR_COUNT; i++) {
-		if (data->thermistors[i] >= 80) return 0;
+		if (data->thermistors[i] >= 80) return 1;
 	}
 
 	// TODO: battery
@@ -1016,8 +1021,8 @@ bool fault_conditions(SensorData *data) {
 	// TODO: check comms signal
 
 	// LiDAR check
-	if (data->lidar_dist > 114) return 0;
-	return 1;
+	if (data->lidar_dist > 114) return 1;
+	return 0;
 }
 
 void init_actions(SensorData *data) {
@@ -1248,6 +1253,10 @@ void StartThermistorsTask(void *argument)
 
 				  }
 			  }
+//			  // Use RTOS atomic operation for flag
+//			  taskENTER_CRITICAL();
+//			  thermistorDataReady = 1;
+//			  taskEXIT_CRITICAL();
 		  }
 //		  printf("Thermistors ALIVE\r\n");
 		  osDelay(1000);
@@ -1390,6 +1399,9 @@ void StartCommandTask(void *argument)
   {
 	  if (newCommandFlag == 1) {
 		  newCommandFlag = 0;
+		  u_int8_t recievedCmd = rxBuffer[0]; // pulled command from the queue
+		  osMessageQueuePut(commandQueue, &recievedCmd, 0, 0);
+
 		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
 //		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
@@ -1424,20 +1436,26 @@ void StartFSMTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-	  //run_pre_run_checklist(&sensorData);
+	    //run_pre_run_checklist(&sensorData);
 		bool auto_trigger = fault_conditions(&sensorData);
+
+		uint8_t pendingCmd;
+		bool hasCommand = false; // checks to see if queue is empty
+
+		if (osMessageQueueGet(commandQueue, &pendingCmd, NULL, 0) == osOK) { // reads and pops a cmd from queue
+			hasCommand = true;
+		}
 
 		switch(fsm.currentState) {
 		case INIT:
 			if (fsm.stateEntry) {
-//				init_actions(&sensorData);
+				init_actions(&sensorData);
 				fsm.stateEntry = 0;
 			}
-			//guiCommand = CMD_LOAD; // just to test
 
 			// manual GUI trigger
-			if(preRun.allOk && guiCommand == CMD_LOAD) {
-				guiCommand = CMD_NONE;
+			if(preRun.allOk && hasCommand && pendingCmd == CMD_LOAD) {
+				//guiCommand = CMD_NONE; // freertos message queue FIFO buffer -- race condition
 				fsm.previousState = fsm.currentState;
 				fsm.currentState = LOAD;
 				fsm.stateEntry = 1;
@@ -1451,14 +1469,14 @@ void StartFSMTask(void *argument)
 
 			// automatic trigger
 			fsm.previousState = fsm.currentState;
-			if (auto_trigger) {
+			if (auto_trigger) { // this state passes through
 				fsm.currentState = FAULT;
-			} else if(preRun.allOk && guiCommand == CMD_PRECHARGE) { // manual GUI trigger
-				guiCommand = CMD_NONE;
+			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_PRECHARGE) { // manual GUI trigger
 				fsm.currentState = PRECHARGE;
-			} else {
-				guiCommand = CMD_NONE;
+			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
 				fsm.currentState = STOP;
+			} else {
+				fsm.currentState = LOAD;
 			}
 			fsm.stateEntry = 1;
 			break;

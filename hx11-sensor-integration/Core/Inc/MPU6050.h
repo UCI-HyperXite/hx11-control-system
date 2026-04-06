@@ -45,8 +45,10 @@ typedef struct _MPU6050{
 extern Struct_MPU6050 MPU6050;
 
 void MPU6050_Writebyte(uint8_t reg_addr, uint8_t val);
+//HAL_StatusTypeDef MPU6050_Writebyte(uint8_t reg_addr, uint8_t val);
 void MPU6050_Writebytes(uint8_t reg_addr, uint8_t len, uint8_t* data);
 void MPU6050_Readbyte(uint8_t reg_addr, uint8_t* data);
+//HAL_StatusTypeDef MPU6050_Readbyte(uint8_t reg_addr, uint8_t* data);
 void MPU6050_Readbytes(uint8_t reg_addr, uint8_t len, uint8_t* data);
 void MPU6050_Initialization(I2C_HandleTypeDef *handler);
 void MPU6050_Get6AxisRawData(Struct_MPU6050* mpu6050);
