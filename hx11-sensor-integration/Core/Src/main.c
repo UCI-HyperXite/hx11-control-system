@@ -1200,7 +1200,7 @@ void StartMPUTask(void *argument)
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 //
 //			 }
-	  printf("MPU task ran!\r\n");
+//	  printf("MPU task ran!\r\n");
 	  osDelay(300);
   }
   /* USER CODE END StartMPUTask */
@@ -1221,12 +1221,13 @@ void StartThermistorsTask(void *argument)
 	    uint32_t minutes = 0;
 	    uint32_t seconds = 0;
 	    uint32_t time_elapsed = 0;
-//	    char uart_tx_buff[100];
+	    char uart_tx_buff[100];
 
 	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 //	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
 	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+
 
 	  /* Infinite loop */
 	  for(;;)
@@ -1240,12 +1241,16 @@ void StartThermistorsTask(void *argument)
 				  float value = ntc_convertToC(rawValues[i]);
 //				  float value = 72.01;
 				  thermistorValues[i] = value;
-//				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-//				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+				  if (i == 0) {
+//					  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+//					  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//					  printf("Thermistor %d,%.2f\r\n", i, value);
+
+				  }
 			  }
 		  }
-		  printf("Thermistors ALIVE\r\n");
-		  osDelay(300);
+//		  printf("Thermistors ALIVE\r\n");
+		  osDelay(1000);
 	  }
   /* USER CODE END StartThermistorsTask */
 }
@@ -1312,8 +1317,8 @@ void StartINATask(void *argument)
 //		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
 //		printf("INA Task Alive!\r\n");
-		  sprintf(uart_tx_buff, "INA Task\r\n");
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+//		  sprintf(uart_tx_buff, "INA Task\r\n");
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
 		osDelay(300);
 	  }
@@ -1338,15 +1343,15 @@ void StartTelemetryTask(void *argument)
 	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
 	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 	  sensorData.start_marker = 0xAA;
-	  sensorData.lidar_dist = 0;
-	  sensorData.roll = 0;
-	  sensorData.pitch = 0;
+	  sensorData.lidar_dist = 10;
+	  sensorData.roll = 10;
+	  sensorData.pitch = 10;
 	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
-	  sensorData.pt_up = 0;
-	  sensorData.pt_down = 0;
-	  sensorData.lv_batt = 0;
-	  sensorData.hv_batt_temp = 0;
-	  sensorData.hv_batt = 0;
+	  sensorData.pt_up = 10;
+	  sensorData.pt_down = 10;
+	  sensorData.lv_batt = 10;
+	  sensorData.hv_batt_temp = 10;
+	  sensorData.hv_batt = 10;
 	  sensorData.pod_state = 1;
 	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
 	  // DMA problem??
@@ -1386,17 +1391,17 @@ void StartCommandTask(void *argument)
 	  if (newCommandFlag == 1) {
 		  newCommandFlag = 0;
 		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
 			  HAL_UART_AbortReceive(&huart7);
 		  }
 		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
 	  } else {
-		  printf("No command received....\r\n");
+//		  printf("No command received....\r\n");
 	  }
 	  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
 		  sprintf(cmd_debug_msg, "UART7 Error Detected: %lu. Resetting...\r\n", huart7.ErrorCode);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 
 		  HAL_UART_AbortReceive(&huart7);
 		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
