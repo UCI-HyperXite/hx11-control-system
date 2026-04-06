@@ -54,11 +54,7 @@ void MPU6050_Initialization(I2C_HandleTypeDef *handler)
 	{
 		printf("ERROR!\r\n");
 		printf("MPU6050 who_am_i : 0x%02x should be 0x68\r\n", who_am_i);
-		while(1)
-		{
-			printf("who am i error. Can not recognize mpu6050\r\n");
-			HAL_Delay(100);
-		}
+		return;
 	}
 
 	//Reset the whole module before initialization
@@ -219,5 +215,4 @@ void MPU6050_ProcessData(Struct_MPU6050* mpu6050)
 	MPU6050_Get6AxisRawData(mpu6050);
 	MPU6050_DataConvert(mpu6050);
 }
-
 
