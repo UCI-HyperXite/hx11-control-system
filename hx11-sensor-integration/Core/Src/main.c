@@ -1574,6 +1574,7 @@ void StartFSMTask(void *argument)
   /* USER CODE END StartFSMTask */
 }
 
+
 /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM2 interrupt took place, inside
