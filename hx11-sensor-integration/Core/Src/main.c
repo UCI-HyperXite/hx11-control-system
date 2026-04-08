@@ -72,49 +72,49 @@ UART_HandleTypeDef huart7;
 osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
-  .stack_size = 1024 * 4, // tasks sizes too small
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
 const osThreadAttr_t mpuTask_attributes = {
   .name = "mpuTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityBelowNormal,
 };
 /* Definitions for thermistorsTask */
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for INATask */
 osThreadId_t INATaskHandle;
 const osThreadAttr_t INATask_attributes = {
   .name = "INATask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for telemetryTask */
 osThreadId_t telemetryTaskHandle;
 const osThreadAttr_t telemetryTask_attributes = {
   .name = "telemetryTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 18 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for commandTask */
 osThreadId_t commandTaskHandle;
 const osThreadAttr_t commandTask_attributes = {
   .name = "commandTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
 /* Definitions for fsmTask */
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
@@ -178,6 +178,9 @@ typedef struct __attribute__((packed)) {
 	float pt_up, pt_down;         //ina219, left and right brake
 	float lv_batt;                //ina260
 	float hv_batt_temp, hv_batt;  //BMS
+	float batt_soc;               //Battery state of charge
+	float lim_volt, lim_curr;
+	float imd;  				  // IMD status
 	uint8_t pod_state;
 	char message[100];
 } SensorData;
@@ -949,6 +952,7 @@ void init_sensors(void) {
 
 	// INA
 	printf("INAs initializing...\r\n");
+<<<<<<< HEAD
 	osMutexAcquire(i2cMutex, osWaitForever);
     if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
 	    Error_Handler();
@@ -958,6 +962,15 @@ void init_sensors(void) {
 	    Error_Handler();
     }
 	osMutexRelease(i2cMutex);
+=======
+//    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
+//	    Error_Handler();
+//    }
+//
+//    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
+//	    Error_Handler();
+//    }
+>>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
 	printf("Finished INAs initialization.\r\n");
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
 }
@@ -1214,8 +1227,14 @@ void StartMPUTask(void *argument)
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 //			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+<<<<<<< HEAD
 			 }
 	  printf("MPU task ran!\r\n");
+=======
+//
+//			 }
+//	  printf("MPU task ran!\r\n");
+>>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
 	  osDelay(300);
   }
   /* USER CODE END StartMPUTask */
@@ -1244,6 +1263,7 @@ void StartThermistorsTask(void *argument)
 
 	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
 
+
 	  /* Infinite loop */
 	  for(;;)
 	  {
@@ -1256,8 +1276,12 @@ void StartThermistorsTask(void *argument)
 				  float value = ntc_convertToC(rawValues[i]);
 //				  float value = 72.01;
 				  thermistorValues[i] = value;
-//				  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-//				  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+				  if (i == 0) {
+//					  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
+//					  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+//					  printf("Thermistor %d,%.2f\r\n", i, value);
+
+				  }
 			  }
 			  memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
 //			  // Use RTOS atomic operation for flag
@@ -1265,8 +1289,8 @@ void StartThermistorsTask(void *argument)
 //			  thermistorDataReady = 1;
 //			  taskEXIT_CRITICAL();
 		  }
-		  printf("Thermistors ALIVE\r\n");
-		  osDelay(300);
+//		  printf("Thermistors ALIVE\r\n");
+		  osDelay(1000);
 	  }
   /* USER CODE END StartThermistorsTask */
 }
@@ -1281,12 +1305,20 @@ void StartThermistorsTask(void *argument)
 void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
+<<<<<<< HEAD
 	  INA219_t ina219;
 	  uint16_t vbus, vshunt, current, power;
 
 	  INA219_t ina219_1;
 	  uint16_t vbus1, vshunt1, current1, power1;
 	  SensorData *data = (SensorData *)argument;
+=======
+//	  INA219_t ina219;
+//	  uint16_t vbus, vshunt, current, power;
+//
+//	  INA219_t ina219_1;
+//	  uint16_t vbus1, vshunt1, current1, power1;
+>>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
 //	  char uart_tx_buff[100];
 //	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
 //		  Error_Handler();
@@ -1366,15 +1398,19 @@ void StartTelemetryTask(void *argument)
 	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
 	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 	  sensorData.start_marker = 0xAA;
-	  sensorData.lidar_dist = 0;
-	  sensorData.roll = 0;
-	  sensorData.pitch = 0;
+	  sensorData.lidar_dist = 13;
+	  sensorData.roll = 2;
+	  sensorData.pitch = 3;
 	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
-	  sensorData.pt_up = 0;
-	  sensorData.pt_down = 0;
-	  sensorData.lv_batt = 0;
-	  sensorData.hv_batt_temp = 0;
-	  sensorData.hv_batt = 0;
+	  sensorData.pt_up = 4;
+	  sensorData.pt_down = 5;
+	  sensorData.lv_batt = 6;
+	  sensorData.hv_batt_temp = 7;
+	  sensorData.batt_soc = 8;
+	  sensorData.lim_volt = 9;
+	  sensorData.lim_curr = 10;
+	  sensorData.hv_batt = 11;
+	  sensorData.imd = 12;
 	  sensorData.pod_state = 1;
 	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
 	  // DMA problem??
@@ -1417,17 +1453,17 @@ void StartCommandTask(void *argument)
 		  osMessageQueuePut(commandQueue, &recievedCmd, 0, 0);
 
 		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
 			  HAL_UART_AbortReceive(&huart7);
 		  }
 		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
 	  } else {
-		  printf("No command received....\r\n");
+//		  printf("No command received....\r\n");
 	  }
 	  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
 		  sprintf(cmd_debug_msg, "UART7 Error Detected: %lu. Resetting...\r\n", huart7.ErrorCode);
-		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 
 		  HAL_UART_AbortReceive(&huart7);
 		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
