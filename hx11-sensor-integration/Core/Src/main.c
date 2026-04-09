@@ -952,17 +952,6 @@ void init_sensors(void) {
 
 	// INA
 	printf("INAs initializing...\r\n");
-<<<<<<< HEAD
-	osMutexAcquire(i2cMutex, osWaitForever);
-    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-	    Error_Handler();
-    }
-
-    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-	    Error_Handler();
-    }
-	osMutexRelease(i2cMutex);
-=======
 //    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
 //	    Error_Handler();
 //    }
@@ -970,7 +959,6 @@ void init_sensors(void) {
 //    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
 //	    Error_Handler();
 //    }
->>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
 	printf("Finished INAs initialization.\r\n");
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
 }
@@ -1227,14 +1215,9 @@ void StartMPUTask(void *argument)
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 //			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-<<<<<<< HEAD
-			 }
-	  printf("MPU task ran!\r\n");
-=======
 //
-//			 }
+			 }
 //	  printf("MPU task ran!\r\n");
->>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
 	  osDelay(300);
   }
   /* USER CODE END StartMPUTask */
@@ -1305,20 +1288,12 @@ void StartThermistorsTask(void *argument)
 void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
-<<<<<<< HEAD
-	  INA219_t ina219;
-	  uint16_t vbus, vshunt, current, power;
-
-	  INA219_t ina219_1;
-	  uint16_t vbus1, vshunt1, current1, power1;
-	  SensorData *data = (SensorData *)argument;
-=======
 //	  INA219_t ina219;
-//	  uint16_t vbus, vshunt, current, power;
+	  SensorData *data = (SensorData *)argument;
+	  uint16_t vbus, vshunt, current, power;
 //
 //	  INA219_t ina219_1;
-//	  uint16_t vbus1, vshunt1, current1, power1;
->>>>>>> branch 'feature/FreeRTOS-refactor' of https://github.com/UCI-HyperXite/hx11-control-system.git
+	  uint16_t vbus1, vshunt1, current1, power1;
 //	  char uart_tx_buff[100];
 //	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
 //		  Error_Handler();
@@ -1332,10 +1307,10 @@ void StartINATask(void *argument)
 	  for(;;)
 	  {
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus = INA219_ReadBusVoltage(&ina219);
-		  vshunt = INA219_ReadShuntVoltage(&ina219);
-		  current = INA219_ReadCurrent(&ina219);
-		  power = INA219_ReadPower(&ina219);
+		  vbus = INA219_ReadBusVoltage(&ina219_left);
+		  vshunt = INA219_ReadShuntVoltage(&ina219_left);
+		  current = INA219_ReadCurrent(&ina219_left);
+		  power = INA219_ReadPower(&ina219_left);
 		  osMutexRelease(i2cMutex);
 		  data->pt_up = power;
 
@@ -1352,10 +1327,10 @@ void StartINATask(void *argument)
 //		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 //
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus1 = INA219_ReadBusVoltage(&ina219_1);
-		  vshunt1 = INA219_ReadShuntVoltage(&ina219_1);
-		  current1 = INA219_ReadCurrent(&ina219_1);
-		  power1 = INA219_ReadPower(&ina219_1);
+		  vbus1 = INA219_ReadBusVoltage(&ina219_right);
+		  vshunt1 = INA219_ReadShuntVoltage(&ina219_right);
+		  current1 = INA219_ReadCurrent(&ina219_right);
+		  power1 = INA219_ReadPower(&ina219_right);
 		  osMutexRelease(i2cMutex);
 		  data->pt_down = power1;
 //
