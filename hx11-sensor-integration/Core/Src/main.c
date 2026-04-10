@@ -156,7 +156,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 }
 
 uint8_t rxBuffer[1];
-uint8_t newCommandFlag = 0;
+volatile uint8_t newCommandFlag = 0;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == UART7) {
         newCommandFlag = 1;
@@ -239,9 +239,14 @@ INA219_t ina219_left;
 INA219_t ina219_right;
 uint32_t object_distance;
 
+#define SENSOR_INIT_DONE (1 << 0)
+#define ADC_READY_FLAG (1 << 0)
 osMessageQueueId_t commandQueue;
 osMutexId_t sensorMutex;
 osMutexId_t i2cMutex;
+osEventFlagsId_t sensorInitFlag;
+osEventFlagsId_t adcFlag;
+
 
 /* USER CODE END 0 */
 
@@ -284,8 +289,14 @@ int main(void)
   /* USER CODE END 2 */
 
   commandQueue = osMessageQueueNew(10, sizeof(uint8_t), NULL);
+  if (commandQueue == NULL) Error_Handler();
+
   sensorMutex = osMutexNew(NULL);
+  if (sensorMutex == NULL) Error_Handler();
+
   i2cMutex = osMutexNew(NULL);
+  if (i2cMutex == NULL) Error_Handler();
+
   /* Init scheduler */
   osKernelInitialize();
 
@@ -355,6 +366,12 @@ int main(void)
   }
 
   /* Start scheduler */
+  sensorInitFlag = osEventFlagsNew(NULL);
+  if (sensorInitFlag == NULL) Error_Handler();
+
+  adcFlag = osEventFlagsNew(NULL);
+  if (adcFlag == NULL) Error_Handler();
+
   osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
@@ -942,6 +959,7 @@ void init_sensors(void) {
 	printf("THERMS initializing...\r\n");
 	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	osEventFlagsSet(adcFlag, ADC_READY_FLAG);
 	printf("Finished THERMS initialization.\r\n");
 
 	// LED
@@ -952,15 +970,18 @@ void init_sensors(void) {
 
 	// INA
 	printf("INAs initializing...\r\n");
-//    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-//	    Error_Handler();
-//    }
-//
-//    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-//	    Error_Handler();
-//    }
+    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
+	    Error_Handler();
+    }
+
+    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
+	    Error_Handler();
+    }
 	printf("Finished INAs initialization.\r\n");
+
+
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
+	osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
 }
 
 void pre_run_checklist(SensorData *data)
@@ -972,11 +993,15 @@ void pre_run_checklist(SensorData *data)
 //	preRun.pneumaticsOk = 1;
 //	preRun.batteryOk = 1;
 
+	SensorData localCopy;
+	osMutexAcquire(sensorMutex, osWaitForever);
+	memcpy(&localCopy, data, sizeof(SensorData));
+	osMutexRelease(sensorMutex);
+
 
     // TODO: GUI comms check
 
     // sensors initialized -- can be read
-	init_sensors();
 	preRun.sensorsOk = 1;
 
     // TODO: brakes closed
@@ -988,7 +1013,8 @@ void pre_run_checklist(SensorData *data)
 
     // tilt range check -- roll, pitch
 		// TODO: change bounds vals and error ping
-	if (data->roll >= 23.34 || data->pitch >= 23.34) {
+	if (localCopy.roll >= 23.34 || localCopy.pitch >= 23.34) {
+		preRun.tiltOk = 0;
 		printf("ERROR");
 	}
 	preRun.tiltOk = 1;
@@ -1031,6 +1057,8 @@ bool fault_conditions(SensorData *data) {
 
 void init_actions(SensorData *data) {
     printf("Entering INIT state\r\n");
+
+	init_sensors();
 
     // TODO: brakes CLOSED
 //    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
@@ -1138,19 +1166,19 @@ void StartLidarTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
 //	printf("Lidar Task Starting...\r\n");
-//
-//	/* Configure lidar once */
-//	lidar_init(&hi2c1);
-//	lidar_config(4);
-////	uint32_t object_distance;
-//
+
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 	char uart_tx_buff[100];
 	SensorData *data = (SensorData *)argument;
 
 	for(;;)
 	{
 		object_distance = retrieve_lidar_distance();
+
+		osMutexAcquire(sensorMutex, osWaitForever);
 		data->lidar_dist = object_distance;
+		osMutexRelease(sensorMutex);
+
 		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
 		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
@@ -1172,9 +1200,7 @@ void StartMPUTask(void *argument)
   /* USER CODE BEGIN StartMPUTask */
 //	  printf("MPU Task Starting...\r\n");
 
-	  // MPU initialization
-//	  MPU6050_Initialization(&hi2c1);
-//	  printf("Finished MPU initialization.\r\n");
+	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 	  float roll = 0, pitch = 0;
 	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
 	  uint32_t lastTick = osKernelGetTickCount();
@@ -1204,8 +1230,10 @@ void StartMPUTask(void *argument)
 			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
 			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
 
+			  osMutexAcquire(sensorMutex, osWaitForever);
 			  data->roll = roll;
 			  data->pitch = pitch;
+			  osMutexRelease(sensorMutex);
 
 //			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
 //			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
@@ -1233,6 +1261,8 @@ void StartMPUTask(void *argument)
 void StartThermistorsTask(void *argument)
 {
   /* USER CODE BEGIN StartThermistorsTask */
+	    osEventFlagsWait(adcFlag, ADC_READY_FLAG, osFlagsNoClear, osWaitForever);
+	    osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 		uint32_t startTime = HAL_GetTick();
 	    uint32_t hours = 0;
 	    uint32_t minutes = 0;
@@ -1241,7 +1271,7 @@ void StartThermistorsTask(void *argument)
 	    SensorData *data = (SensorData *)argument;
 //	    char uart_tx_buff[100];
 
-	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
+//	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 //	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
 	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
@@ -1266,11 +1296,10 @@ void StartThermistorsTask(void *argument)
 
 				  }
 			  }
+
+			  osMutexAcquire(sensorMutex, osWaitForever);
 			  memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
-//			  // Use RTOS atomic operation for flag
-//			  taskENTER_CRITICAL();
-//			  thermistorDataReady = 1;
-//			  taskEXIT_CRITICAL();
+			  osMutexRelease(sensorMutex);
 		  }
 //		  printf("Thermistors ALIVE\r\n");
 		  osDelay(1000);
@@ -1288,20 +1317,11 @@ void StartThermistorsTask(void *argument)
 void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
-//	  INA219_t ina219;
+	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 	  SensorData *data = (SensorData *)argument;
 	  uint16_t vbus, vshunt, current, power;
-//
-//	  INA219_t ina219_1;
 	  uint16_t vbus1, vshunt1, current1, power1;
 //	  char uart_tx_buff[100];
-//	  if (!INA219_Init(&ina219, &hi2c1, INA219_ADDRESS)) {
-//		  Error_Handler();
-//	  }
-//
-//	  if (!INA219_Init(&ina219_1, &hi2c1, INA219_ADDRESS1)) {
-//		  Error_Handler();
-//	  }
 
 	  /* Infinite loop */
 	  for(;;)
@@ -1312,7 +1332,7 @@ void StartINATask(void *argument)
 		  current = INA219_ReadCurrent(&ina219_left);
 		  power = INA219_ReadPower(&ina219_left);
 		  osMutexRelease(i2cMutex);
-		  data->pt_up = power;
+
 
 //		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
 //		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
@@ -1332,7 +1352,11 @@ void StartINATask(void *argument)
 		  current1 = INA219_ReadCurrent(&ina219_right);
 		  power1 = INA219_ReadPower(&ina219_right);
 		  osMutexRelease(i2cMutex);
+
+		  osMutexAcquire(sensorMutex, osWaitForever);
+		  data->pt_up = power;
 		  data->pt_down = power1;
+		  osMutexRelease(sensorMutex);
 //
 //		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
 //		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
@@ -1462,7 +1486,14 @@ void StartFSMTask(void *argument)
   for(;;)
   {
 	    //run_pre_run_checklist(&sensorData);
-		bool auto_trigger = fault_conditions(&sensorData);
+
+		SensorData localCopy;
+
+		osMutexAcquire(sensorMutex, osWaitForever);
+		memcpy(&localCopy, &sensorData, sizeof(SensorData));
+		osMutexRelease(sensorMutex);
+
+		bool auto_trigger = fault_conditions(&localCopy);
 
 		uint8_t pendingCmd;
 		bool hasCommand = false; // checks to see if queue is empty
@@ -1496,14 +1527,17 @@ void StartFSMTask(void *argument)
 			fsm.previousState = fsm.currentState;
 			if (auto_trigger) { // this state passes through
 				fsm.currentState = FAULT;
+				fsm.stateEntry = 1;
 			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_PRECHARGE) { // manual GUI trigger
 				fsm.currentState = PRECHARGE;
+				fsm.stateEntry = 1;
 			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
 				fsm.currentState = STOP;
+				fsm.stateEntry = 1;
 			} else {
 				fsm.currentState = LOAD;
+				fsm.stateEntry = 1;
 			}
-			fsm.stateEntry = 1;
 			break;
 		case PRECHARGE:
 			if (fsm.stateEntry) {
@@ -1514,16 +1548,17 @@ void StartFSMTask(void *argument)
 			fsm.previousState = fsm.currentState;
 			if (auto_trigger) {
 				fsm.currentState = FAULT;
+				fsm.stateEntry = 1;
 			}
 			// TODO: automatic trigger -- if voltage/current stabilize
   //			else if (voltage_current) {
   //				fsm.currentState = START;
+  //		        fsm.stateEntry = 1;
   //			}
 			else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
-				guiCommand = CMD_NONE;
 				fsm.currentState = STOP;
+				fsm.stateEntry = 1;
 			}
-			fsm.stateEntry = 1;
 			break;
 		case START:
 			if (fsm.stateEntry) {
@@ -1534,11 +1569,11 @@ void StartFSMTask(void *argument)
 			fsm.previousState = fsm.currentState;
 			if (auto_trigger) {
 				fsm.currentState = FAULT;
+				fsm.stateEntry = 1;
 			} else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
-				guiCommand = CMD_NONE;
 				fsm.currentState = STOP;
+				fsm.stateEntry = 1;
 			}
-			fsm.stateEntry = 1;
 			break;
 		case FAULT:
 			if (fsm.stateEntry) {
@@ -1559,8 +1594,8 @@ void StartFSMTask(void *argument)
 			fsm.previousState = fsm.currentState;
 			if (hasCommand && pendingCmd == CMD_INIT) {
 				fsm.currentState = INIT;
+				fsm.stateEntry = 1;
 			}
-			fsm.stateEntry = 1;
 			break;
 		case STOP:
 			if (fsm.stateEntry) {
@@ -1571,13 +1606,15 @@ void StartFSMTask(void *argument)
 			fsm.previousState = fsm.currentState;
 			if (auto_trigger) {
 				fsm.currentState = FAULT;
+				fsm.stateEntry = 1;
 			}
 			else if (hasCommand && pendingCmd == CMD_INIT) {
 				fsm.currentState = INIT;
+				fsm.stateEntry = 1;
 			} else if (hasCommand && pendingCmd == CMD_LOAD) {
 				fsm.currentState = LOAD;
+				fsm.stateEntry = 1;
 			}
-			fsm.stateEntry = 1;
 			break;
 		}
     osDelay(50);
