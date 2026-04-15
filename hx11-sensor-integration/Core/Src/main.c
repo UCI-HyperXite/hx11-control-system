@@ -32,21 +32,19 @@
 #include "thermistor.h"
 #include "ina219.h"
 #include "ws2812b.h"
+#include "lidar.h"
+
+#include "time_utils.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-int retrieve_lidar_distance();
-void lidar_config(int);
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LIDAR_ADD 0x62<<1  // i2c slave address of lidar lite
-I2C_HandleTypeDef *LIDAR_I2C_Handler;
-
 
 /* USER CODE END PD */
 
@@ -118,10 +116,6 @@ const osThreadAttr_t fsmTask_attributes = {
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
-uint32_t m_distance,object_distance;
-uint8_t cmd[1];
-uint8_t data[2]={10};
-
 
 /* USER CODE END PV */
 
@@ -142,7 +136,6 @@ void StartCommandTask(void *argument);
 void StartFSMTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-void convert_millis_to_hms(uint32_t, uint32_t*, uint32_t*, uint32_t*);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -317,25 +310,12 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of lidarTask */
   lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
-
-  /* creation of mpuTask */
   mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
-
-  /* creation of thermistorsTask */
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, &sensorData, &thermistorsTask_attributes);
-
-  /* creation of INATask */
   INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
-
-  /* creation of telemetryTask */
   telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
-
-  /* creation of commandTask */
   commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
-
-  /* creation of fsmTask */
   fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -804,105 +784,6 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void lidar_init(I2C_HandleTypeDef *hi2c)
-{
-    LIDAR_I2C_Handler = hi2c;
-}
-
-void lidar_config(int configur)
-{
-    // configuration setting for lidar
-    cmd[0] = 0x04;
-    osMutexAcquire(i2cMutex, osWaitForever);
-    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,0x100);
-    switch(configur)
-    {
-    case 0:
-        //default mode , balance mode
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x04;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 1:
-        //short range, high speed
-        cmd[0]=0x1d;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 2:
-        //default range, higher speed short range
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 3:
-        //maximum Range
-        cmd[0]=0xff;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 4:
-        //high sensitivity detection, high  measurement
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 5:
-        //low sensitivity detection , low  measurement
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0xb0;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-    }
-    osMutexRelease(i2cMutex);
-}
-
-
-int retrieve_lidar_distance()
-{
-	osMutexAcquire(i2cMutex, osWaitForever);
-    cmd[0]=0x04;
-    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,100);
-    cmd[0]=0x8f;
-    HAL_I2C_Master_Transmit(LIDAR_I2C_Handler,LIDAR_ADD,cmd,1,100);
-    HAL_I2C_Master_Receive(LIDAR_I2C_Handler,LIDAR_ADD,data,2,100);
-    m_distance = (data[0]<<8)|(data[1]);
-    osMutexRelease(i2cMutex);
-    return m_distance ;
-}
-
-void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_t* minutes, uint32_t* seconds) {
-    uint32_t total_seconds = total_milliseconds / 1000;
-
-    *seconds = total_seconds % 60;
-    *minutes = (total_seconds / 60) % 60;
-    *hours = total_seconds / 3600;
-}
-
 void blink_yellow(void)
 {
     static uint32_t lastToggle = 0;
@@ -945,7 +826,9 @@ void init_sensors(void) {
 	// LIDAR
 	printf("LIDAR initializing...\r\n");
 	lidar_init(&hi2c1);
+	osMutexAcquire(i2cMutex, osWaitForever);
 	lidar_config(4);
+	osMutexRelease(i2cMutex);
 	printf("Finished LIDAR initialization.\r\n");
 
 	// MPU
@@ -1173,7 +1056,9 @@ void StartLidarTask(void *argument)
 
 	for(;;)
 	{
+		osMutexAcquire(i2cMutex, osWaitForever);
 		object_distance = retrieve_lidar_distance();
+		osMutexRelease(i2cMutex);
 
 		osMutexAcquire(sensorMutex, osWaitForever);
 		data->lidar_dist = object_distance;
