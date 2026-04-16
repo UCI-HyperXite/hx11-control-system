@@ -183,6 +183,7 @@ export default function App() {
 							// therm2: data.therms?.[1]?.toFixed(2) ?? "",
 							// therm3: data.therms?.[2]?.toFixed(2) ?? "",
 							// therm4: data.therms?.[3]?.toFixed(2) ?? "",
+
 						});
 
 
