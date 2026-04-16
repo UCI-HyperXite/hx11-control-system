@@ -54,7 +54,8 @@ PodState podStatus = PodState::INIT;
 SensorData telemetryData;  // Assign from ESP32 (other)
 uint8_t command = 0;  // Assign from Laptop
 unsigned long lastHeartbeatESP = 0;
-const unsigned long timeoutMs = 2000;
+unsigned long lastSendTime = 0;
+const unsigned long timeoutMs = 2000;  // TODO: change from 2 seconds
 
 unsigned long lastLoop = 0;
 
@@ -210,11 +211,28 @@ void loop() {
 
   lastLoop = millis();
 
-  command = 2;  // LOAD
-  esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&command, sizeof(command));
-  if (result != ESP_OK) {
-    // TODO: ERROR HANDLING
-    Serial.println("Message was not queued for transmission");
+  // CONNECT to laptop serial
+  if (Serial.available() > 0) {
+    String input = Serial.readStringUntil('\n');
+    input.trim();
+
+    if (input.length() > 0) {
+      int command = input.toInt();
+      esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&command, sizeof(command));
+      if (result != ESP_OK) {
+        Serial.println("Message was not queued for transmission");
+      }
+      lastSendTime = millis();
+    }
+  }
+
+  unsigned long now = millis();
+  if (now - lastSendTime >= 1000) {
+    lastSendTime = now;
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&command, sizeof(command));
+    if (result != ESP_OK) {
+      Serial.println("Message was not queued for transmission");
+    }
   }
 
   if ((millis()-lastHeartbeatESP) > timeoutMs) {

@@ -18,7 +18,7 @@ enum class PodState:uint8_t {
 
 enum class GUICommand:uint8_t {
   NONE,
-  OK,
+  INIT,
   LOAD,
   START,
   STOP
