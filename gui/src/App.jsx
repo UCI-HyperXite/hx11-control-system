@@ -5,16 +5,6 @@ import { TopRow } from "./components/TopRow";
 import { BottomRow } from "./components/BottomRow";
 import { Footer } from "./components/Footer";
 
-const podStateColors = {
-	INITSTATE:      "#FC95AD",
-	LOADSTATE:      "#3DADFF",
-	PRECHARGESTATE: "#FFCD29",
-	STARTSTATE:     "#359D43",
-	STOPSTATE:      "#F24822",
-	FAULTSTATE:     "#1E1E1E",
-	HALTSTATE:      "#FFA629",
-};
-
 const podStateMap = {
 	0: "INITSTATE",
 	1: "LOADSTATE",
@@ -25,7 +15,6 @@ const podStateMap = {
 	6: "HALTSTATE",
 };
 
-
 export default function App() {
 	// State for telemetry data from API
 	const [telemetry, setTelemetry] = React.useState({
@@ -34,13 +23,13 @@ export default function App() {
 	position: "0.00",
 	speed: "0.00",
 
-	accelerationx: "0.00",
-    accelerationy: "0.00",
-    accelerationz: "0.00",
+	// accelerationx: "0.00",
+    // accelerationy: "0.00",
+    // accelerationz: "0.00",
 
 	gyrox: "0.00",
     gyroy: "0.00",
-    gyroz: "0.00",
+    // gyroz: "0.00",
 
     limVoltage: "0.00",
     limCurrent: "0.00",
@@ -51,14 +40,10 @@ export default function App() {
     battTemp: "0.00",
     imdStatus: "Insulated",
 	
-	vbus1: "0",
-    vShunt1: "0",
+	
     current1: "0",
-    power1: "0",
-    vbus2: "0",
-    vShunt2: "0",
     current2: "0",
-    power2: "0",
+
 
     therm1: "0.00",
     therm2: "0.00", 
@@ -88,16 +73,8 @@ export default function App() {
 	});
 
 	// State for POD STATE dot colors from API
-	const [podStates, setPodStates] = React.useState({
-		INITSTATE: "#FC95AD",
-		LOADSTATE: "#3DADFF",
-		PRECHARGESTATE: "#FFCD29",
-		STARTSTATE: "#359D43",
-		STOPSTATE: "#F24822",
-		FAULTSTATE: "#1E1E1E",
-		HALTSTATE: "#FFA629"
-	});
-
+	const [podState, setPodState] = React.useState(null);
+	
 	const [isConnected, setIsConnected] = React.useState(false);
 	const [consoleLogs, setConsoleLogs] = React.useState([]);
   	const readerRef = React.useRef(null);
@@ -164,70 +141,55 @@ export default function App() {
 						setTelemetry(prev => ({
 							...prev,
 							// time: data.time ?? prev.time,
-							// distance: data.lidar_distance ?? prev.distance,
+							distance: data.lidar ?? prev.distance,
+							// podState: data.pod_state ??prev.podState,
 							// position: data.position ?? prev.position,
 							// speed: data.speed ?? prev.speed,
 							// accelerationx: data.accelerationx ?? prev.accelerationx,
 							// accelerationy: data.accelerationy ?? prev.accelerationy,
 							// accelerationz: data.accelerationz ?? prev.accelerationz,
-							// gyrox: data.gyrox ?? prev.gyrox,
-							// gyroy: data.gyroy ?? prev.gyroy,
+							gyrox: data.roll ?? prev.gyrox,
+							gyroy: data.pitch ?? prev.gyroy,
 							// gyroz: data.gyroz ?? prev.gyroz,
-							// limVoltage: data.limVoltage ?? prev.limVoltage,
-							// limCurrent: data.limCurrent ?? prev.limCurrent,
-							// battVoltage: data.battVoltage ?? prev.battVoltage,
-							// lvbattVoltage: data.lvbattVoltage ?? prev.lvbattVoltage,
-							// battCurrent: data.battCurrent ?? prev.battCurrent,
-							// battSoC: data.battSoC ?? prev.battSoC,
-							// battTemp: data.battTemp ?? prev.battTemp,
-							// imdStatus: data.imdStatus ?? prev.imdStatus,
+							limVoltage: data.lim_volt ?? prev.limVoltage,
+							limCurrent: data.lim_curr ?? prev.limCurrent,
+							battVoltage: data.hv_batt ?? prev.battVoltage,
+							lvbattVoltage: data.lv_batt ?? prev.lvbattVoltage, //ina260
+							battCurrent: data.batt_curr ?? prev.battCurrent,
+							battSoC: data.batt_soc ?? prev.battSoC,
+							battTemp: data.hv_batt_temp ?? prev.battTemp,
+							imdStatus: data.imd ?? prev.imdStatus,
 							
-							// vbus1: data.vbus1 ?? prev.vbus1,
-							// vShunt1: data.vShunt1 ?? prev.vShunt1,
-							// current1: data.current1 ?? prev.current1,
-							// power1: data.power1 ?? prev.power1,
-							// vbus2: data.vbus2 ?? prev.vbus2,
-							// vShunt2: data.vShunt2 ?? prev.vShunt2,
-							// current2: data.current2 ?? prev.current2,
-							// power2: data.power2 ?? prev.power2,
-
-
-
-							// {"RSSI":0,"lidar_distance":0,"pod_state":1,"therms":[72.01,72.01,72.01,72.01,72.01,72.01,72.01,72.01]}
+				
+							current1: data.pt_up ?? prev.current1,
+							current2: data.pt_down ?? prev.current2,
+							
+							// {"lidar":0,"pod_state":1,"roll":0.00,"pitch":0.00,"therms":[20.43,33.09,41.80,59.81,65.01,70.80,83.82,80.72],"pt_up":0.00,"pt_down":0.00,"lv_batt":0.00,"hv_batt_temp":0.00,"hv_batt":0.00,"msg":"Whatever message"}
 							
 
 							therm1: data.therms?.[0]?.toFixed(2) ?? prev.therm1,
 							therm2: data.therms?.[1]?.toFixed(2) ?? prev.therm2,
 							therm3: data.therms?.[2]?.toFixed(2) ?? prev.therm3,
 							therm4: data.therms?.[3]?.toFixed(2) ?? prev.therm4,
-							// therm5: data.therms?.[4]?.toFixed(2) ?? prev.therm5,
-							// therm6: data.therms?.[5]?.toFixed(2) ?? prev.therm6,
-							// therm7: data.therms?.[6]?.toFixed(2) ?? prev.therm7,
-							// therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
+							therm5: data.therms?.[4]?.toFixed(2) ?? prev.therm5,
+							therm6: data.therms?.[5]?.toFixed(2) ?? prev.therm6,
+							therm7: data.therms?.[6]?.toFixed(2) ?? prev.therm7,
+							therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
 						}));
 
 						csvRowsRef.current.push({
 							time: new Date().toISOString(),
 							therm1: data.therms?.[0]?.toFixed(2) ?? "",
-							therm2: data.therms?.[1]?.toFixed(2) ?? "",
-							therm3: data.therms?.[2]?.toFixed(2) ?? "",
-							therm4: data.therms?.[3]?.toFixed(2) ?? "",
+							// therm2: data.therms?.[1]?.toFixed(2) ?? "",
+							// therm3: data.therms?.[2]?.toFixed(2) ?? "",
+							// therm4: data.therms?.[3]?.toFixed(2) ?? "",
 						});
 
 
 						if (data.pod_state !== undefined) {
 							const activeState = podStateMap[data.pod_state];
 							if (activeState) {
-								setPodStates({
-									INITSTATE:      "#1E1E1E",
-									LOADSTATE:      "#1E1E1E",
-									PRECHARGESTATE: "#1E1E1E",
-									STARTSTATE:     "#1E1E1E",
-									STOPSTATE:      "#1E1E1E",
-									FAULTSTATE:     "#1E1E1E",
-									HALTSTATE:      "#1E1E1E",
-									[activeState]:  podStateColors[activeState],
-								});
+								setPodState(activeState);
 							}
 						}
 					
@@ -242,6 +204,20 @@ export default function App() {
 			console.error("Serial connection failed ✗", err);
 			addLog(`Connection failed: ${err.message}`);
 			setIsConnected(false);
+		}
+	}
+
+	async function sendSerial(message) {
+		if (!portRef.current || !isConnected) return;
+		try {
+		const encoder = new TextEncoderStream();
+		encoder.readable.pipeTo(portRef.current.writable);
+		const writer = encoder.writable.getWriter();
+		await writer.write(message);
+		await writer.close();
+		addLog(`Sent: ${message.trim()}`);
+		} catch (err) {
+			addLog(`Send failed: ${err.message}`);
 		}
 	}
 
@@ -276,14 +252,13 @@ export default function App() {
 					)}
 				</div>
 				)}
-				<Header podStates={podStates} />
+				<Header podState={podState} />
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
 				padding: "1.25vw", display: "flex", flexDirection: "column",
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} />
 					<BottomRow consoleLogs={consoleLogs}/>
-				</div>
-				<div style = {{textAlign: "center"}}>
+				
 					<button
 						onClick={downloadCSV}
 						style={{
@@ -296,12 +271,11 @@ export default function App() {
 							cursor: "pointer",
 							fontWeight: "bold",
 							fontSize: 14
-						}}
-					>
+						}}>
 						Export CSV
-					</button>
-				</div>	
-				<Footer/>
-		</div>
+				</button>
+				</div>
+				<Footer sendSerial={sendSerial}/>
+				</div>
 	);
 }

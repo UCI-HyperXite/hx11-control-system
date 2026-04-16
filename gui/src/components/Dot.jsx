@@ -1,8 +1,9 @@
 import React from "react";
 
-export function Dot({ size = "2.222vw", style }) {
+export function Dot({ size = "2.222vw", style, className = "" }) {
 	return (
 		<div
+			className={className}
 			style={{
 				width: size,
 				height: size,

@@ -67,6 +67,7 @@ export function BottomRow({consoleLogs = [] }) {
                          : "#f0e6f2",
                     borderBottom: "1px solid #3d3050",
                     paddingBottom: "0.25vw",
+					wordBreak: "break-word",
                   }}
                 >
                   {log}
@@ -105,7 +106,7 @@ export function BottomRow({consoleLogs = [] }) {
 								<th>Cell 10</th>
 								<th>Cell 11</th>
 								<th>Cell 12</th>
-								<th>   Sum  </th>
+								<th>Sum</th>
 							</tr>
 		
 							{Array.from({ length: 9 }).map((_, rowIndex) => (

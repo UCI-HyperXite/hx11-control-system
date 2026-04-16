@@ -5,7 +5,7 @@ export function Card({ title, children, style = {} }) {
 		<div
 			style={{
 				background: "#eadfd6",
-				borderRadius: "1vw",
+				borderRadius: "0.75vw",
 				padding: "1vw",
 				boxSizing: "border-box",
 				boxShadow: "inset 0 0.167vw 0 rgba(0,0,0,0.03)",
