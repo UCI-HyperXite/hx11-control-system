@@ -74,11 +74,7 @@ unsigned long lastLoop = 0;
 */
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  if (memcmp(mac, broadcastAddress, 6) != 0) {
-    Serial.println("Unknown sender");
-    return;
-  }
-
+  
   Serial.println(">>> PACKET RECEIVED <<<");
   lastHeartbeatESP = millis();
   if (len == sizeof(uint8_t)) {
