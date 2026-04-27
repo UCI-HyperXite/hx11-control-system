@@ -11,8 +11,10 @@
 Struct_MPU6050 MPU6050;
 I2C_HandleTypeDef *MPU6050_I2C_Handler;
 
-static float LSB_Sensitivity_ACC;
-static float LSB_Sensitivity_GYRO;
+//static float LSB_Sensitivity_ACC;
+//static float LSB_Sensitivity_GYRO;
+static float LSB_Sensitivity_ACC = 16384.0f;
+static float LSB_Sensitivity_GYRO = 131.0f;
 
 
 
@@ -48,7 +50,7 @@ void MPU6050_Initialization(I2C_HandleTypeDef *handler)
 	MPU6050_Readbyte(MPU6050_WHO_AM_I, &who_am_i);
 	if(who_am_i == 0x68)
 	{
-		printf("MPU6050 who_am_i = 0x%02x...OK\r\n", who_am_i);
+		printf("MPU6050 OK\r\n", who_am_i);
 	}
 	else
 	{
@@ -215,4 +217,3 @@ void MPU6050_ProcessData(Struct_MPU6050* mpu6050)
 	MPU6050_Get6AxisRawData(mpu6050);
 	MPU6050_DataConvert(mpu6050);
 }
-

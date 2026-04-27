@@ -32,21 +32,19 @@
 #include "thermistor.h"
 #include "ina219.h"
 #include "ws2812b.h"
+#include "lidar.h"
+
+#include "time_utils.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-int retrieve_lidar_distance();
-void lidar_config(int);
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LIDAR_ADD 0x62<<1  // i2c slave address of lidar lite
-I2C_HandleTypeDef *LIDAR_I2C_Handler;
-
 
 /* USER CODE END PD */
 
@@ -73,7 +71,7 @@ osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityNormal4,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
@@ -86,7 +84,7 @@ const osThreadAttr_t mpuTask_attributes = {
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 128 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for INATask */
@@ -100,28 +98,24 @@ const osThreadAttr_t INATask_attributes = {
 osThreadId_t telemetryTaskHandle;
 const osThreadAttr_t telemetryTask_attributes = {
   .name = "telemetryTask",
-  .stack_size = 18 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal2,
 };
 /* Definitions for commandTask */
 osThreadId_t commandTaskHandle;
 const osThreadAttr_t commandTask_attributes = {
   .name = "commandTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal3,
+  .priority = (osPriority_t) osPriorityNormal5,
 };
 /* Definitions for fsmTask */
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* USER CODE BEGIN PV */
-uint32_t m_distance,object_distance;
-uint8_t cmd[1];
-uint8_t data[2]={10};
-
 
 /* USER CODE END PV */
 
@@ -142,7 +136,6 @@ void StartCommandTask(void *argument);
 void StartFSMTask(void *argument);
 
 /* USER CODE BEGIN PFP */
-void convert_millis_to_hms(uint32_t, uint32_t*, uint32_t*, uint32_t*);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -163,12 +156,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
         HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
     }
 }
-
-//#define CMD_NONE 0
-//#define CMD_OK 1
-//#define CMD_LOAD 2
-//#define CMD_PRECHARGE 3
-//#define CMD_STOP 4
 
 typedef struct __attribute__((packed)) {
 	uint8_t start_marker;
@@ -239,6 +226,11 @@ INA219_t ina219_left;
 INA219_t ina219_right;
 uint32_t object_distance;
 
+uint8_t lidar_ok = 0;
+uint8_t mpu_ok = 0;
+uint8_t ina_left_ok = 0;
+uint8_t ina_right_ok = 0;
+
 #define SENSOR_INIT_DONE (1 << 0)
 #define ADC_READY_FLAG (1 << 0)
 osMessageQueueId_t commandQueue;
@@ -247,6 +239,57 @@ osMutexId_t i2cMutex;
 osEventFlagsId_t sensorInitFlag;
 osEventFlagsId_t adcFlag;
 
+void I2C1_BusRecovery(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    /* Temporarily configure SCL (PB6) and SDA (PB9) as GPIO */
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+
+    HAL_I2C_DeInit(&hi2c1);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_6;  /* SCL */
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    GPIO_InitStruct.Pin = GPIO_PIN_9;  /* SDA */
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* Clock SCL 9 times to release any stuck slave */
+    for (int i = 0; i < 9; i++) {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
+        HAL_Delay(1);
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+        HAL_Delay(1);
+
+        /* If SDA is high, the bus is free */
+        if (HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_9) == GPIO_PIN_SET) {
+            break;
+        }
+    }
+
+    /* Generate STOP: SDA low while SCL high, then SDA high */
+    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_RESET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_SET);
+    HAL_Delay(1);
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+    HAL_Delay(1);
+
+    /* Re-init I2C peripheral */
+    MX_I2C1_Init();
+
+    printf("I2C1 bus recovery complete\r\n");
+}
 
 /* USER CODE END 0 */
 
@@ -254,6 +297,7 @@ osEventFlagsId_t adcFlag;
   * @brief  The application entry point.
   * @retval int
   */
+
 int main(void)
 {
 
@@ -284,10 +328,27 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM1_Init();
   MX_UART7_Init();
+
+  __HAL_RCC_GPIOE_CLK_ENABLE();
+
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+
   /* USER CODE BEGIN 2 */
+
+  I2C1_BusRecovery();
 
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* Create RTOS objects AFTER kernel init */
   commandQueue = osMessageQueueNew(10, sizeof(uint8_t), NULL);
   if (commandQueue == NULL) Error_Handler();
 
@@ -297,8 +358,11 @@ int main(void)
   i2cMutex = osMutexNew(NULL);
   if (i2cMutex == NULL) Error_Handler();
 
-  /* Init scheduler */
-  osKernelInitialize();
+  sensorInitFlag = osEventFlagsNew(NULL);
+  if (sensorInitFlag == NULL) Error_Handler();
+
+  adcFlag = osEventFlagsNew(NULL);
+  if (adcFlag == NULL) Error_Handler();
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -317,26 +381,15 @@ int main(void)
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of lidarTask */
-  lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
-
-  /* creation of mpuTask */
-  mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
-
-  /* creation of thermistorsTask */
+//  lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
+//  mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, &sensorData, &thermistorsTask_attributes);
-
-  /* creation of INATask */
-  INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
-
-  /* creation of telemetryTask */
+//  INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
   telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
-
-  /* creation of commandTask */
   commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
+//  fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
 
-  /* creation of fsmTask */
-  fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
+  init_sensors();
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -347,10 +400,17 @@ int main(void)
   /* USER CODE END RTOS_EVENTS */
 
   /* Initialize leds */
-  BSP_LED_Init(LED_GREEN);
-  BSP_LED_Init(LED_BLUE);
-  BSP_LED_Init(LED_RED);
+//  BSP_LED_Init(LED_GREEN);
+//  BSP_LED_Init(LED_BLUE);
+//  BSP_LED_Init(LED_RED);
+//
+//  BSP_LED_On(LED_GREEN);
+//  BSP_LED_On(LED_BLUE);
+//  BSP_LED_On(LED_RED);
 
+//  	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_1, GPIO_PIN_SET);
+//      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);
+//      HAL_GPIO_WritePin(GPIOB, GPIO_PIN_14, GPIO_PIN_SET);
   /* Initialize USER push-button, will be used to trigger an interrupt each time it's pressed.*/
   BSP_PB_Init(BUTTON_USER, BUTTON_MODE_EXTI);
 
@@ -366,12 +426,6 @@ int main(void)
   }
 
   /* Start scheduler */
-  sensorInitFlag = osEventFlagsNew(NULL);
-  if (sensorInitFlag == NULL) Error_Handler();
-
-  adcFlag = osEventFlagsNew(NULL);
-  if (adcFlag == NULL) Error_Handler();
-
   osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
@@ -389,6 +443,8 @@ int main(void)
   }
   /* USER CODE END 3 */
 }
+
+
 
 /**
   * @brief System Clock Configuration
@@ -469,7 +525,8 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV2;
   hadc1.Init.Resolution = ADC_RESOLUTION_16B;
   hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  //hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.NbrOfConversion = 8;
@@ -805,194 +862,99 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-void lidar_init(I2C_HandleTypeDef *hi2c)
-{
-    LIDAR_I2C_Handler = hi2c;
-}
-
-void lidar_config(int configur)
-{
-    // configuration setting for lidar
-    cmd[0] = 0x04;
-    osMutexAcquire(i2cMutex, osWaitForever);
-    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,0x100);
-    switch(configur)
-    {
-    case 0:
-        //default mode , balance mode
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x04;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 1:
-        //short range, high speed
-        cmd[0]=0x1d;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 2:
-        //default range, higher speed short range
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 3:
-        //maximum Range
-        cmd[0]=0xff;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x00;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 4:
-        //high sensitivity detection, high  measurement
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-
-    case 5:
-        //low sensitivity detection , low  measurement
-        cmd[0]=0x80;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x02,1,cmd,1,0x1000);
-        cmd[0]=0x08;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x04,1,cmd,1,0x1000);
-        cmd[0]=0xb0;
-        HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x1c,1,cmd,1,0x1000);
-        break;
-    }
-    osMutexRelease(i2cMutex);
-}
-
-
-int retrieve_lidar_distance()
-{
-	osMutexAcquire(i2cMutex, osWaitForever);
-    cmd[0]=0x04;
-    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,cmd,1,100);
-    cmd[0]=0x8f;
-    HAL_I2C_Master_Transmit(LIDAR_I2C_Handler,LIDAR_ADD,cmd,1,100);
-    HAL_I2C_Master_Receive(LIDAR_I2C_Handler,LIDAR_ADD,data,2,100);
-    m_distance = (data[0]<<8)|(data[1]);
-    osMutexRelease(i2cMutex);
-    return m_distance ;
-}
-
-void convert_millis_to_hms(uint32_t total_milliseconds, uint32_t* hours, uint32_t* minutes, uint32_t* seconds) {
-    uint32_t total_seconds = total_milliseconds / 1000;
-
-    *seconds = total_seconds % 60;
-    *minutes = (total_seconds / 60) % 60;
-    *hours = total_seconds / 3600;
-}
-
-void blink_yellow(void)
-{
-    static uint32_t lastToggle = 0;
-    static uint8_t ledOn = 0;
-
-    if (osKernelGetTickCount() - lastToggle > 500)
-    {
-        lastToggle = osKernelGetTickCount();
-        ledOn = !ledOn;
-
-        if (ledOn)
-            WS2812_SetAll(128, 128, 0);
-        else
-            WS2812_SetAll(0, 0, 0);
-
-        WS2812_Start();
-    }
-}
-
-void blink_red(void)
-{
-    static uint32_t lastToggle = 0;
-    static uint8_t ledOn = 0;
-
-    if (osKernelGetTickCount() - lastToggle > 500)
-    {
-        lastToggle = osKernelGetTickCount();
-        ledOn = !ledOn;
-
-        if (ledOn)
-            WS2812_SetAll(180, 0, 0);
-        else
-            WS2812_SetAll(0, 0, 0);
-
-        WS2812_Start();
-    }
-}
-
 void init_sensors(void) {
-	// LIDAR
-	printf("LIDAR initializing...\r\n");
-	lidar_init(&hi2c1);
-	lidar_config(4);
-	printf("Finished LIDAR initialization.\r\n");
+//  printf("===== I2C1 BUS SCAN =====\r\n");
+//  uint8_t found = 0;
+//  for (uint8_t addr = 1; addr < 128; addr++) {
+//    if (HAL_I2C_IsDeviceReady(&hi2c1, addr << 1, 1, 10) == HAL_OK) {
+//      printf("  0x%02X ACK\r\n", addr);
+//      found++;
+//    }
+//  }
+//  if (found == 0) {
+//    printf("  NO DEVICES FOUNDfsdsdfsdffsdsdfSDA/SCL wiring order\r\n");
+//  }
+//  printf("  %d device(s) on bus\r\n", found);
+//  printf("=========================\r\n");
+//
+////  // LIDAR
+//  printf("LIDAR initializing...\r\n");
+//  lidar_init(&hi2c1);
+//  osMutexAcquire(i2cMutex, osWaitForever);
+//  lidar_config(4);
+//  osMutexRelease(i2cMutex);
+//  osMutexAcquire(i2cMutex, osWaitForever);
+//  lidar_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0x62 << 1, 2, 50) == HAL_OK) ? 1 : 0;
+//  osMutexRelease(i2cMutex);
+//  if (lidar_ok) {
+//    printf("Finished LIDAR initialization.\r\n");
+//  } else {
+//    printf("WARNING: LIDAR not responding on I2C bus\r\n");
+//  }
+//
+//  // MPU
+//  printf("MPU initializing...\r\n");
+//  osMutexAcquire(i2cMutex, osWaitForever);
+//  mpu_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0xD0, 2, 50) == HAL_OK) ? 1 : 0;
+//
+//  if (mpu_ok) {
+//	  MPU6050_Initialization(&hi2c1);
+//      printf("Finished MPU initialization.\r\n");
+//    } else {
+//      printf("WARNING: MPU6050 not responding on I2C bus\r\n");
+//    }
+//  osMutexRelease(i2cMutex);
 
-	// MPU
-	printf("MPU initializing...\r\n");
-	osMutexAcquire(i2cMutex, osWaitForever);
-	MPU6050_Initialization(&hi2c1);
-	osMutexRelease(i2cMutex);
-	printf("Finished MPU initialization.\r\n");
 
 	// THERMISTORS
-	printf("THERMS initializing...\r\n");
-	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-	osEventFlagsSet(adcFlag, ADC_READY_FLAG);
-	printf("Finished THERMS initialization.\r\n");
-
-	// LED
-	printf("LED initializing...\r\n");
-	WS2812_Init(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
-	printf("Finished LED initialization.\r\n");
-
-	// INA
-	printf("INAs initializing...\r\n");
-    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-	    Error_Handler();
-    }
-
-    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-	    Error_Handler();
-    }
-	printf("Finished INAs initialization.\r\n");
+  printf("THERMS initializing...\r\n");
+  //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+  if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT) != HAL_OK) {
+	  printf("❌ ADC DMA failed to start\r\n");
+  } else {
+	  printf("✅ ADC DMA started\r\n");
+  }
+  osEventFlagsSet(adcFlag, ADC_READY_FLAG);
+  printf("Finished THERMS initialization.\r\n");
 
 
-	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
-	osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
+    // LED
+//    printf("LED initializing...\r\n");
+//    WS2812_Init(&htim1, TIM_CHANNEL_1);
+//    HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+//    WS2812_SetAll(255, 0, 0);
+//    WS2812_Start();
+//    HAL_Delay(1000);
+//    printf("Finished LED initialization.\r\n");
+
+
+//
+//  printf("INAs initializing...\r\n");
+//  ina_left_ok = INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS);
+//  if (!ina_left_ok) {
+//    printf("WARNING: INA219 LEFT (0x%02X) init failed\r\n", INA219_ADDRESS);
+//  }
+//
+//  ina_right_ok = INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1);
+//  if (!ina_right_ok) {
+//    printf("WARNING: INA219 RIGHT (0x%02X) init failed\r\n", INA219_ADDRESS1);
+//  }
+//  printf("Finished INAs initialization.\r\n");
+
+
+  printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
+  printf("  LIDAR: %s | MPU: %s | INA_L: %s | INA_R: %s\r\n",
+    lidar_ok  ? "OK" : "FAIL",
+    mpu_ok    ? "OK" : "FAIL",
+    ina_left_ok  ? "OK" : "FAIL",
+    ina_right_ok ? "OK" : "FAIL");
+
+  osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
 }
+
 
 void pre_run_checklist(SensorData *data)
 {
-	// testing purposes lolz
-//	preRun.sensorsOk = 1;
-//	preRun.brakesClosed = 1;
-//	preRun.tiltOk = 1;
-//	preRun.pneumaticsOk = 1;
-//	preRun.batteryOk = 1;
-
 	SensorData localCopy;
 	osMutexAcquire(sensorMutex, osWaitForever);
 	memcpy(&localCopy, data, sizeof(SensorData));
@@ -1002,7 +964,7 @@ void pre_run_checklist(SensorData *data)
     // TODO: GUI comms check
 
     // sensors initialized -- can be read
-	preRun.sensorsOk = 1;
+	preRun.sensorsOk = (lidar_ok && mpu_ok && ina_left_ok && ina_right_ok);
 
     // TODO: brakes closed
 
@@ -1012,12 +974,12 @@ void pre_run_checklist(SensorData *data)
 	preRun.ledsOk = 1;
 
     // tilt range check -- roll, pitch
-		// TODO: change bounds vals and error ping
 	if (localCopy.roll >= 23.34 || localCopy.pitch >= 23.34) {
 		preRun.tiltOk = 0;
-		printf("ERROR");
+		printf("ERROR: tilt out of range\r\n");
+	} else {
+		preRun.tiltOk = 1;
 	}
-	preRun.tiltOk = 1;
 
     // TODO: pneumatics pressure
 
@@ -1031,6 +993,8 @@ void pre_run_checklist(SensorData *data)
 		preRun.pneumaticsOk &&
 		preRun.batteryOk
 	);
+
+	preRun.allOk = 1;
 }
 
 bool fault_conditions(SensorData *data) {
@@ -1060,97 +1024,39 @@ void init_actions(SensorData *data) {
 
 	init_sensors();
 
-    // TODO: brakes CLOSED
-//    HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_SET);
-
-    // TODO: establish GUI comms again
-
-    // TODO: LV system ON -- calibrate sensors??? what does this mean
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
-    // TODO: send sensor data to GUI
-
-
 	pre_run_checklist(&sensorData);
-	blink_yellow();
     printf("INIT complete -- waiting for transition\r\n");
 }
 
 void load_actions(SensorData *data) {
     printf("Entering LOAD state\r\n");
 
-    // TODO: brakes OPEN
-    //HAL_GPIO_WritePin(GPIOX, BRAKE_PIN, GPIO_PIN_RESET);
-
-    // TODO: LV stays ON
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
-    // TODO: HV OFF
-//    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
-
-    // TODO: send sensor data to GUI
-
-	blink_yellow();
     printf("LOAD complete -- waiting for transition\r\n");
 }
 
 void precharge_actions(SensorData *data) {
-	// TODO: brakes open
-
-	// TODO: turn on HV sequence
-
-	// TODO: send sensor data to GUI
-
-	blink_yellow();
 	printf("PRECHARGE complete -- waiting for transition\r\n");
 }
 
 void start_actions(SensorData *data) {
-	//	TODO: OpenBrakes();
-	//	TODO: StartVFD_LIM();
-	//	TODO: SendSensorDataToGUI(data);
-
 	// solid green
-	WS2812_SetAll(0, 180, 0);
-	WS2812_Start();
 	printf("START complete -- waiting for transition\r\n");
 }
 
 
 void stop_actions(SensorData *data) {
-	//	TODO: CloseBrakes();
-	//	TODO: SetHVPower(OFF);
-	//	TODO: SendSensorDataToGUI(data);
-
-
 	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
 	printf("STOP complete -- waiting for transition\r\n");
 }
 
 void fault_actions(SensorData *data) {
-	// TODO: CloseBrakes();
-	// TODO: EmergencyRelayCutoff();
-	// TODO: StoreFaultInfo(data);
-
-
 	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
 	printf("FAULT complete -- waiting for transition\r\n");
 }
 
 void halt_actions(SensorData *data) {
-	// TODO: CloseBrakes();
-	// TODO: SaveToOnboardMemory(data);
-	// TODO: SetHVPower(OFF);
-
-
 	// solid red
-	WS2812_SetAll(180, 0, 0);
-	WS2812_Start();
-	printf("START complete -- waiting for transition\r\n");
+	printf("HALT complete -- waiting for transition\r\n");
 }
 
 /* USER CODE END 4 */
@@ -1165,15 +1071,23 @@ void halt_actions(SensorData *data) {
 void StartLidarTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-//	printf("Lidar Task Starting...\r\n");
 
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
+	if (!lidar_ok) {
+		printf("LiDAR task: sensor not available, suspending\r\n");
+		osThreadSuspend(osThreadGetId());
+	}
+
 	char uart_tx_buff[100];
 	SensorData *data = (SensorData *)argument;
 
 	for(;;)
 	{
+		//printf("flag=%d\r\n", convCompleted);
+		osMutexAcquire(i2cMutex, osWaitForever);
 		object_distance = retrieve_lidar_distance();
+		osMutexRelease(i2cMutex);
 
 		osMutexAcquire(sensorMutex, osWaitForever);
 		data->lidar_dist = object_distance;
@@ -1182,7 +1096,6 @@ void StartLidarTask(void *argument)
 		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
 		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-		printf("Lidar task ALIVE");
 		osDelay(300);
 	}
   /* USER CODE END 5 */
@@ -1198,56 +1111,65 @@ void StartLidarTask(void *argument)
 void StartMPUTask(void *argument)
 {
   /* USER CODE BEGIN StartMPUTask */
-//	  printf("MPU Task Starting...\r\n");
 
 	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
+	  if (!mpu_ok) {
+		  printf("MPU task: sensor not available, suspending\r\n");
+		  osThreadSuspend(osThreadGetId());
+	  }
+
 	  float roll = 0, pitch = 0;
-	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
+	  const float alpha = 0.98f;
 	  uint32_t lastTick = osKernelGetTickCount();
 	  SensorData *data = (SensorData *)argument;
-//	  char uart_tx_buff[150];
+
+	  char uart_tx_buff[150];
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
-		  if(MPU6050_DataReady()) {
+		  /* DataReady() does an I2C read (MPU6050_INT_STATUS register),
+		   * so it MUST be inside the i2cMutex. Previously it was unprotected,
+		   * which caused bus collisions with LiDAR/INA tasks on the same I2C1. */
+		  osMutexAcquire(i2cMutex, osWaitForever);
+		  int ready = MPU6050_DataReady();
+		  if (ready) {
+			  MPU6050_ProcessData(&MPU6050);
+		  }
+		  osMutexRelease(i2cMutex);
+
+		  if (ready) {
 			  uint32_t now = osKernelGetTickCount();
 			  float dt = (now - lastTick) / 1000.0f;
 			  lastTick = now;
 
-			  osMutexAcquire(i2cMutex, osWaitForever);
-			  MPU6050_ProcessData(&MPU6050);
-			  osMutexRelease(i2cMutex);
 			  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
-			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
+			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y + MPU6050.acc_z*MPU6050.acc_z))
 								  * 180.0f / M_PI;
 
-			  // 2. Integrate gyro
 			  roll  += MPU6050.gyro_x * dt;
 			  pitch += MPU6050.gyro_y * dt;
 
-			  // 3. Complementary filter
 			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
 			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
+
+			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
+			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
 			  osMutexAcquire(sensorMutex, osWaitForever);
 			  data->roll = roll;
 			  data->pitch = pitch;
 			  osMutexRelease(sensorMutex);
-
-//			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-			 }
-//	  printf("MPU task ran!\r\n");
-	  osDelay(300);
-  }
+		  } else {
+			  /* Keep lastTick current even when no data is ready.
+			   * Without this, skipped cycles accumulate into a huge dt
+			   * on the next successful read, causing the gyro integration
+			   * to overshoot wildly (the -111 / 90 you were seeing). */
+			  lastTick = osKernelGetTickCount();
+		  }
+		  osDelay(300);
+	  }
   /* USER CODE END StartMPUTask */
 }
 
@@ -1318,63 +1240,36 @@ void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
 	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
+	  if (!ina_left_ok && !ina_right_ok) {
+		  printf("INA task: no sensors available, suspending\r\n");
+		  osThreadSuspend(osThreadGetId());
+	  }
+
 	  SensorData *data = (SensorData *)argument;
-	  uint16_t vbus, vshunt, current, power;
-	  uint16_t vbus1, vshunt1, current1, power1;
-//	  char uart_tx_buff[100];
+	  uint16_t power_left = 0, power_right = 0;
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
-		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus = INA219_ReadBusVoltage(&ina219_left);
-		  vshunt = INA219_ReadShuntVoltage(&ina219_left);
-		  current = INA219_ReadCurrent(&ina219_left);
-		  power = INA219_ReadPower(&ina219_left);
-		  osMutexRelease(i2cMutex);
+		  if (ina_left_ok) {
+			  osMutexAcquire(i2cMutex, osWaitForever);
+			  power_left = INA219_ReadPower(&ina219_left);
+			  osMutexRelease(i2cMutex);
+		  }
 
-
-//		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus1 = INA219_ReadBusVoltage(&ina219_right);
-		  vshunt1 = INA219_ReadShuntVoltage(&ina219_right);
-		  current1 = INA219_ReadCurrent(&ina219_right);
-		  power1 = INA219_ReadPower(&ina219_right);
-		  osMutexRelease(i2cMutex);
+		  if (ina_right_ok) {
+			  osMutexAcquire(i2cMutex, osWaitForever);
+			  power_right = INA219_ReadPower(&ina219_right);
+			  osMutexRelease(i2cMutex);
+		  }
 
 		  osMutexAcquire(sensorMutex, osWaitForever);
-		  data->pt_up = power;
-		  data->pt_down = power1;
+		  data->pt_up = power_left;
+		  data->pt_down = power_right;
 		  osMutexRelease(sensorMutex);
-//
-//		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-//		printf("INA Task Alive!\r\n");
-//		  sprintf(uart_tx_buff, "INA Task\r\n");
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		osDelay(300);
+		  osDelay(300);
 	  }
   /* USER CODE END StartINATask */
 }
@@ -1452,7 +1347,7 @@ void StartCommandTask(void *argument)
 		  osMessageQueuePut(commandQueue, &recievedCmd, 0, 0);
 
 		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
 			  HAL_UART_AbortReceive(&huart7);
 		  }
@@ -1479,28 +1374,45 @@ void StartCommandTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartFSMTask */
+const char* state_to_string(pod_status s) {
+	switch(s) {
+		case INIT: return "INIT";
+		case LOAD: return "LOAD";
+		case PRECHARGE: return "PRECHARGE";
+		case START: return "START";
+		case STOP: return "STOP";
+		case FAULT: return "FAULT";
+		case HALT: return "HALT";
+		default: return "UNKNOWN"; }
+}
+
 void StartFSMTask(void *argument)
 {
   /* USER CODE BEGIN StartFSMTask */
   /* Infinite loop */
+	preRun.allOk = 1;
   for(;;)
   {
-	    //run_pre_run_checklist(&sensorData);
-
+		uint32_t now = osKernelGetTickCount();
 		SensorData localCopy;
 
 		osMutexAcquire(sensorMutex, osWaitForever);
 		memcpy(&localCopy, &sensorData, sizeof(SensorData));
 		osMutexRelease(sensorMutex);
 
-		bool auto_trigger = fault_conditions(&localCopy);
+		//bool auto_trigger = fault_conditions(&localCopy);
+		bool auto_trigger = false;
 
-		uint8_t pendingCmd;
-		bool hasCommand = false; // checks to see if queue is empty
+//		uint8_t pendingCmd;
+//		bool hasCommand = false;
+//
+//		if (osMessageQueueGet(commandQueue, &pendingCmd, NULL, 0) == osOK) {
+//			hasCommand = true;
+//		}
 
-		if (osMessageQueueGet(commandQueue, &pendingCmd, NULL, 0) == osOK) { // reads and pops a cmd from queue
-			hasCommand = true;
-		}
+		static uint8_t pendingCmd = CMD_NONE;
+		static bool hasCommand = false;
+
 
 		switch(fsm.currentState) {
 		case INIT:
@@ -1509,12 +1421,11 @@ void StartFSMTask(void *argument)
 				fsm.stateEntry = 0;
 			}
 
-			// manual GUI trigger
 			if(preRun.allOk && hasCommand && pendingCmd == CMD_LOAD) {
-				//guiCommand = CMD_NONE; // freertos message queue FIFO buffer -- race condition
 				fsm.previousState = fsm.currentState;
 				fsm.currentState = LOAD;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
 			break;
 		case LOAD:
@@ -1523,21 +1434,21 @@ void StartFSMTask(void *argument)
 				fsm.stateEntry = 0;
 			}
 
-			// automatic trigger
 			fsm.previousState = fsm.currentState;
-			if (auto_trigger) { // this state passes through
+			if (auto_trigger) {
 				fsm.currentState = FAULT;
 				fsm.stateEntry = 1;
-			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_PRECHARGE) { // manual GUI trigger
+				hasCommand = false;
+			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_PRECHARGE) {
 				fsm.currentState = PRECHARGE;
 				fsm.stateEntry = 1;
-			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
+				hasCommand = false;
+			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_STOP) {
 				fsm.currentState = STOP;
 				fsm.stateEntry = 1;
-			} else {
-				fsm.currentState = LOAD;
-				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
+			/* no else -- stay in LOAD with stateEntry = 0 */
 			break;
 		case PRECHARGE:
 			if (fsm.stateEntry) {
@@ -1549,15 +1460,12 @@ void StartFSMTask(void *argument)
 			if (auto_trigger) {
 				fsm.currentState = FAULT;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
-			// TODO: automatic trigger -- if voltage/current stabilize
-  //			else if (voltage_current) {
-  //				fsm.currentState = START;
-  //		        fsm.stateEntry = 1;
-  //			}
-			else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
+			else if(hasCommand && pendingCmd == CMD_STOP) {
 				fsm.currentState = STOP;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
 			break;
 		case START:
@@ -1570,9 +1478,11 @@ void StartFSMTask(void *argument)
 			if (auto_trigger) {
 				fsm.currentState = FAULT;
 				fsm.stateEntry = 1;
-			} else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
+				hasCommand = false;
+			} else if(hasCommand && pendingCmd == CMD_STOP) {
 				fsm.currentState = STOP;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
 			break;
 		case FAULT:
@@ -1595,6 +1505,7 @@ void StartFSMTask(void *argument)
 			if (hasCommand && pendingCmd == CMD_INIT) {
 				fsm.currentState = INIT;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
 			break;
 		case STOP:
@@ -1611,12 +1522,15 @@ void StartFSMTask(void *argument)
 			else if (hasCommand && pendingCmd == CMD_INIT) {
 				fsm.currentState = INIT;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			} else if (hasCommand && pendingCmd == CMD_LOAD) {
 				fsm.currentState = LOAD;
 				fsm.stateEntry = 1;
+				hasCommand = false;
 			}
 			break;
 		}
+
     osDelay(50);
   }
   /* USER CODE END StartFSMTask */
