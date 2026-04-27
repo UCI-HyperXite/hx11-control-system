@@ -1196,7 +1196,7 @@ void StartThermistorsTask(void *argument)
 //	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 //	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
-	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	    // HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
 
 
 	  /* Infinite loop */
@@ -1281,47 +1281,50 @@ void StartINATask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_StartTelemetryTask */
+
 void StartTelemetryTask(void *argument)
 {
   /* USER CODE BEGIN StartTelemetryTask */
-  /* Infinite loop */
-  char uart_tx_buff[100];
+  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
+  char json_buf[512];
+  SensorData localCopy;
+
   for(;;)
   {
+      osMutexAcquire(sensorMutex, osWaitForever);
+      memcpy(&localCopy, &sensorData, sizeof(SensorData));
+      osMutexRelease(sensorMutex);
 
-	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  sensorData.start_marker = 0xAA;
-	  sensorData.lidar_dist = 13;
-	  sensorData.roll = 2;
-	  sensorData.pitch = 3;
-	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
-	  sensorData.pt_up = 4;
-	  sensorData.pt_down = 5;
-	  sensorData.lv_batt = 6;
-	  sensorData.hv_batt_temp = 7;
-	  sensorData.batt_soc = 8;
-	  sensorData.lim_volt = 9;
-	  sensorData.lim_curr = 10;
-	  sensorData.hv_batt = 11;
-	  sensorData.imd = 12;
-	  sensorData.pod_state = 1;
-	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
-	  // DMA problem??
-//	  HAL_UART_Transmit_DMA(&huart7, (uint8_t*)&sensorData, sizeof(SensorData));
-	  sprintf(uart_tx_buff, "Send telemetry data\r\n");
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+      localCopy.pod_state = (uint8_t)fsm.currentState;
 
-	  HAL_StatusTypeDef res = HAL_UART_Transmit(&huart7, (uint8_t*)&sensorData, sizeof(SensorData), 100);
+      int len = snprintf(json_buf, sizeof(json_buf),
+          "{\"lidar\":%lu,\"pod_state\":%u,"
+          "\"roll\":%.2f,\"pitch\":%.2f,"
+          "\"therms\":[%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f],"
+          "\"pt_up\":%.2f,\"pt_down\":%.2f,"
+          "\"lv_batt\":%.2f,\"hv_batt_temp\":%.2f,"
+          "\"hv_batt\":%.2f,\"batt_soc\":%.2f,"
+          "\"lim_volt\":%.2f,\"lim_curr\":%.2f,"
+          "\"imd\":%.2f,\"msg\":\"%s\"}\n",
+          (unsigned long)localCopy.lidar_dist,
+          localCopy.pod_state,
+          localCopy.roll, localCopy.pitch,
+          localCopy.thermistors[0], localCopy.thermistors[1],
+          localCopy.thermistors[2], localCopy.thermistors[3],
+          localCopy.thermistors[4], localCopy.thermistors[5],
+          localCopy.thermistors[6], localCopy.thermistors[7],
+          localCopy.pt_up, localCopy.pt_down,
+          localCopy.lv_batt, localCopy.hv_batt_temp,
+          localCopy.hv_batt, localCopy.batt_soc,
+          localCopy.lim_volt, localCopy.lim_curr,
+          localCopy.imd, "OK");
 
-	  if (res == HAL_OK) {
-	      sprintf(uart_tx_buff, "UART7 Sent %d bytes successfully\r\n", sizeof(SensorData));
-	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  } else {
-	      sprintf(uart_tx_buff, "UART7 ERROR! Status: %d, Code: %lu\r\n", res, huart7.ErrorCode);
-	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  }
-	  osDelay(1000);
+      HAL_UART_Transmit(&huart7, (uint8_t*)json_buf, len, 200);
+
+      printf("Sent %d bytes JSON to UART7\r\n", len);
+
+      osDelay(1000);
   }
   /* USER CODE END StartTelemetryTask */
 }
