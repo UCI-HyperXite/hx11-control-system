@@ -37,7 +37,7 @@ osThreadId_t lidarTaskHandle;
 const osThreadAttr_t lidarTask_attributes = {
   .name = "lidarTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityBelowNormal1,
 };
 /* Definitions for mpuTask */
 osThreadId_t mpuTaskHandle;
@@ -50,7 +50,7 @@ const osThreadAttr_t mpuTask_attributes = {
 osThreadId_t thermistorsTaskHandle;
 const osThreadAttr_t thermistorsTask_attributes = {
   .name = "thermistorsTask",
-  .stack_size = 128 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
 /* Definitions for INATask */
@@ -64,22 +64,22 @@ const osThreadAttr_t INATask_attributes = {
 osThreadId_t telemetryTaskHandle;
 const osThreadAttr_t telemetryTask_attributes = {
   .name = "telemetryTask",
-  .stack_size = 18 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal2,
 };
 /* Definitions for commandTask */
 osThreadId_t commandTaskHandle;
 const osThreadAttr_t commandTask_attributes = {
   .name = "commandTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal3,
+  .priority = (osPriority_t) osPriorityNormal5,
 };
 /* Definitions for fsmTask */
 osThreadId_t fsmTaskHandle;
 const osThreadAttr_t fsmTask_attributes = {
   .name = "fsmTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+  .priority = (osPriority_t) osPriorityHigh,
 };
 /* USER CODE BEGIN PV */
 
@@ -99,28 +99,6 @@ void StartFSMTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-volatile uint8_t convCompleted = 0;
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
-{
-	if (hadc->Instance == ADC1) {
-		convCompleted = 1;
-	}
-}
-
-uint8_t rxBuffer[1];
-volatile uint8_t newCommandFlag = 0;
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart->Instance == UART7) {
-        newCommandFlag = 1;
-        HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
-    }
-}
-
-//#define CMD_NONE 0
-//#define CMD_OK 1
-//#define CMD_LOAD 2
-//#define CMD_PRECHARGE 3
-//#define CMD_STOP 4
 
 typedef struct __attribute__((packed)) {
 	uint8_t start_marker;
@@ -191,6 +169,11 @@ INA219_t ina219_left;
 INA219_t ina219_right;
 uint32_t object_distance;
 
+uint8_t lidar_ok = 0;
+uint8_t mpu_ok = 0;
+uint8_t ina_left_ok = 0;
+uint8_t ina_right_ok = 0;
+
 #define SENSOR_INIT_DONE (1 << 0)
 #define ADC_READY_FLAG (1 << 0)
 osMessageQueueId_t commandQueue;
@@ -198,6 +181,28 @@ osMutexId_t sensorMutex;
 osMutexId_t i2cMutex;
 osEventFlagsId_t sensorInitFlag;
 osEventFlagsId_t adcFlag;
+
+volatile uint8_t convCompleted = 0;
+volatile uint8_t firstConversionComplete = 0;
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
+	if (hadc->Instance == ADC1) {
+		convCompleted = 1;
+		if (!firstConversionComplete) {
+			firstConversionComplete = 1;
+			osEventFlagsSet(adcFlag, ADC_READY_FLAG);
+		}
+	}
+}
+
+uint8_t rxBuffer[1];
+volatile uint8_t newCommandFlag = 0;
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+    if (huart->Instance == UART7) {
+        newCommandFlag = 1;
+        HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+    }
+}
 
 
 /* USER CODE END 0 */
@@ -222,6 +227,9 @@ int main(void)
   MX_TIM1_Init();
   MX_UART7_Init();
 
+  /* Init scheduler */
+  osKernelInitialize();
+
   commandQueue = osMessageQueueNew(10, sizeof(uint8_t), NULL);
   if (commandQueue == NULL) Error_Handler();
 
@@ -231,16 +239,19 @@ int main(void)
   i2cMutex = osMutexNew(NULL);
   if (i2cMutex == NULL) Error_Handler();
 
-  /* Init scheduler */
-  osKernelInitialize();
+  sensorInitFlag = osEventFlagsNew(NULL);
+  if (sensorInitFlag == NULL) Error_Handler();
+
+  adcFlag = osEventFlagsNew(NULL);
+  if (adcFlag == NULL) Error_Handler();
 
   /* Create the thread(s) */
   lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
   mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, &sensorData, &thermistorsTask_attributes);
-  INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
-  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
-  commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
+//  INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
+//  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
+//  commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
   fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
 
   /* Initialize leds */
@@ -263,12 +274,6 @@ int main(void)
   }
 
   /* Start scheduler */
-  sensorInitFlag = osEventFlagsNew(NULL);
-  if (sensorInitFlag == NULL) Error_Handler();
-
-  adcFlag = osEventFlagsNew(NULL);
-  if (adcFlag == NULL) Error_Handler();
-
   osKernelStart();
 }
 
@@ -311,49 +316,116 @@ void blink_red(void)
     }
 }
 
-void init_sensors(void) {
-	// LIDAR
-	printf("LIDAR initializing...\r\n");
-	lidar_init(&hi2c1);
-	osMutexAcquire(i2cMutex, osWaitForever);
-	lidar_config(4);
-	osMutexRelease(i2cMutex);
-	printf("Finished LIDAR initialization.\r\n");
 
-	// MPU
-	printf("MPU initializing...\r\n");
-	osMutexAcquire(i2cMutex, osWaitForever);
-	MPU6050_Initialization(&hi2c1);
-	osMutexRelease(i2cMutex);
-	printf("Finished MPU initialization.\r\n");
+void init_sensors(void) {
+  printf("===== I2C1 BUS SCAN =====\r\n");
+  uint8_t found = 0;
+  for (uint8_t addr = 1; addr < 128; addr++) {
+    if (HAL_I2C_IsDeviceReady(&hi2c1, addr << 1, 1, 10) == HAL_OK) {
+      printf("  0x%02X ACK\r\n", addr);
+      found++;
+    }
+  }
+  if (found == 0) {
+    printf("  NO DEVICES FOUNDfsdsdfsdffsdsdfSDA/SCL wiring order\r\n");
+  }
+  printf("  %d device(s) on bus\r\n", found);
+  printf("=========================\r\n");
+
+  // LIDAR
+  printf("LIDAR initializing...\r\n");
+  lidar_init(&hi2c1);
+  osMutexAcquire(i2cMutex, osWaitForever);
+  lidar_config(4);
+  osMutexRelease(i2cMutex);
+  osMutexAcquire(i2cMutex, osWaitForever);
+  lidar_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0x62 << 1, 2, 50) == HAL_OK) ? 1 : 0;
+  osMutexRelease(i2cMutex);
+  if (lidar_ok) {
+    printf("Finished LIDAR initialization.\r\n");
+  } else {
+    printf("WARNING: LIDAR not responding on I2C bus\r\n");
+  }
+
+  // MPU
+  printf("MPU initializing...\r\n");
+  osMutexAcquire(i2cMutex, osWaitForever);
+  mpu_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0xD0, 2, 50) == HAL_OK) ? 1 : 0;
+
+  if (mpu_ok) {
+	  MPU6050_Initialization(&hi2c1);
+      printf("Finished MPU initialization.\r\n");
+    } else {
+      printf("WARNING: MPU6050 not responding on I2C bus\r\n");
+    }
+  osMutexRelease(i2cMutex);
+
 
 	// THERMISTORS
-	printf("THERMS initializing...\r\n");
-	hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
-	HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-	osEventFlagsSet(adcFlag, ADC_READY_FLAG);
-	printf("Finished THERMS initialization.\r\n");
+  printf("THERMS initializing...\r\n");
+  firstConversionComplete = 0;
 
-	// LED
-	printf("LED initializing...\r\n");
-	WS2812_Init(&htim1, TIM_CHANNEL_1);
-	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
-	printf("Finished LED initialization.\r\n");
-
-	// INA
-	printf("INAs initializing...\r\n");
-    if (!INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS)) {
-	    Error_Handler();
-    }
-
-    if (!INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1)) {
-	    Error_Handler();
-    }
-	printf("Finished INAs initialization.\r\n");
+//  HAL_StatusTypeDef res = HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+//  printf("After ADC start, res=%d\n", res);
+//
+//  // Wait for first conversion or timeout
+//  uint32_t timeout = osWaitForever; // or set a reasonable timeout
+//  osEventFlagsWait(adcFlag, ADC_READY_FLAG, osFlagsNoClear, timeout);
+//  printf("Finished THERMS initialization.\r\n");
 
 
-	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
-	osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
+  //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+  if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT) != HAL_OK) {
+	  printf("❌ ADC DMA failed to start\r\n");
+  } else {
+	  printf("✅ ADC DMA started\r\n");
+  }
+
+
+//  printf("Before ADC start\n");
+//
+//  HAL_StatusTypeDef res = HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+//
+//  printf("After ADC start, res=%d\n", res);
+//  HAL_Delay(50);
+//  printf("Still alive after delay\n");
+//
+//  printf("got here");
+//  osEventFlagsSet(adcFlag, ADC_READY_FLAG);
+
+
+    // LED
+//    printf("LED initializing...\r\n");
+//    WS2812_Init(&htim1, TIM_CHANNEL_1);
+//    HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+//    WS2812_SetAll(255, 0, 0);
+//    WS2812_Start();
+//    HAL_Delay(1000);
+//    printf("Finished LED initialization.\r\n");
+
+
+//
+//  printf("INAs initializing...\r\n");
+//  ina_left_ok = INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS);
+//  if (!ina_left_ok) {
+//    printf("WARNING: INA219 LEFT (0x%02X) init failed\r\n", INA219_ADDRESS);
+//  }
+//
+//  ina_right_ok = INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1);
+//  if (!ina_right_ok) {
+//    printf("WARNING: INA219 RIGHT (0x%02X) init failed\r\n", INA219_ADDRESS1);
+//  }
+//  printf("Finished INAs initialization.\r\n");
+
+
+  printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
+  printf("  LIDAR: %s | MPU: %s | INA_L: %s | INA_R: %s\r\n",
+    lidar_ok  ? "OK" : "FAIL",
+    mpu_ok    ? "OK" : "FAIL",
+    ina_left_ok  ? "OK" : "FAIL",
+    ina_right_ok ? "OK" : "FAIL");
+
+  osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
 }
 
 void pre_run_checklist(SensorData *data)
@@ -388,8 +460,9 @@ void pre_run_checklist(SensorData *data)
 	if (localCopy.roll >= 23.34 || localCopy.pitch >= 23.34) {
 		preRun.tiltOk = 0;
 		printf("ERROR");
+	} else {
+		preRun.tiltOk = 1;
 	}
-	preRun.tiltOk = 1;
 
     // TODO: pneumatics pressure
 
@@ -443,8 +516,8 @@ void init_actions(SensorData *data) {
     // TODO: send sensor data to GUI
 
 
-	pre_run_checklist(&sensorData);
-	blink_yellow();
+//	pre_run_checklist(&sensorData);
+//	blink_yellow();
     printf("INIT complete -- waiting for transition\r\n");
 }
 
@@ -540,25 +613,31 @@ void StartLidarTask(void *argument)
 //	printf("Lidar Task Starting...\r\n");
 
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
-	char uart_tx_buff[100];
-	SensorData *data = (SensorData *)argument;
 
-	for(;;)
-	{
-		osMutexAcquire(i2cMutex, osWaitForever);
-		object_distance = retrieve_lidar_distance();
-		osMutexRelease(i2cMutex);
+		if (!lidar_ok) {
+			printf("LiDAR task: sensor not available, suspending\r\n");
+			osThreadSuspend(osThreadGetId());
+		}
 
-		osMutexAcquire(sensorMutex, osWaitForever);
-		data->lidar_dist = object_distance;
-		osMutexRelease(sensorMutex);
+		char uart_tx_buff[100];
+		SensorData *data = (SensorData *)argument;
 
-		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
-		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+		for(;;)
+		{
+			//printf("flag=%d\r\n", convCompleted);
+			osMutexAcquire(i2cMutex, osWaitForever);
+			object_distance = retrieve_lidar_distance();
+			osMutexRelease(i2cMutex);
 
-		printf("Lidar task ALIVE");
-		osDelay(300);
-	}
+			osMutexAcquire(sensorMutex, osWaitForever);
+			data->lidar_dist = object_distance;
+			osMutexRelease(sensorMutex);
+
+			sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
+			HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+			osDelay(300);
+		}
   /* USER CODE END 5 */
 }
 
@@ -571,55 +650,62 @@ void StartLidarTask(void *argument)
 /* USER CODE END Header_StartMPUTask */
 void StartMPUTask(void *argument)
 {
-  /* USER CODE BEGIN StartMPUTask */
-//	  printf("MPU Task Starting...\r\n");
+  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 
-	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
-	  float roll = 0, pitch = 0;
-	  const float alpha = 0.98f;   // 98% gyro, 2% accelerometer
-	  uint32_t lastTick = osKernelGetTickCount();
-	  SensorData *data = (SensorData *)argument;
-//	  char uart_tx_buff[150];
+  if (!mpu_ok) {
+	  printf("MPU task: sensor not available, suspending\r\n");
+	  osThreadSuspend(osThreadGetId());
+  }
 
-	  /* Infinite loop */
-	  for(;;)
-	  {
-		  if(MPU6050_DataReady()) {
-			  uint32_t now = osKernelGetTickCount();
-			  float dt = (now - lastTick) / 1000.0f;
-			  lastTick = now;
+  float roll = 0, pitch = 0;
+  const float alpha = 0.98f;
+  uint32_t lastTick = osKernelGetTickCount();
+  SensorData *data = (SensorData *)argument;
 
-			  osMutexAcquire(i2cMutex, osWaitForever);
-			  MPU6050_ProcessData(&MPU6050);
-			  osMutexRelease(i2cMutex);
-			  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
-			  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y +MPU6050.acc_z*MPU6050.acc_z))
-								  * 180.0f / M_PI;
+  char uart_tx_buff[150];
 
-			  // 2. Integrate gyro
-			  roll  += MPU6050.gyro_x * dt;
-			  pitch += MPU6050.gyro_y * dt;
+  /* Infinite loop */
+  for(;;)
+  {
+	  /* DataReady() does an I2C read (MPU6050_INT_STATUS register),
+	   * so it MUST be inside the i2cMutex. Previously it was unprotected,
+	   * which caused bus collisions with LiDAR/INA tasks on the same I2C1. */
+	  osMutexAcquire(i2cMutex, osWaitForever);
+	  int ready = MPU6050_DataReady();
+	  if (ready) {
+		  MPU6050_ProcessData(&MPU6050);
+	  }
+	  osMutexRelease(i2cMutex);
 
-			  // 3. Complementary filter
-			  roll  = alpha * roll  + (1 - alpha) * acc_roll;
-			  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
+	  if (ready) {
+		  uint32_t now = osKernelGetTickCount();
+		  float dt = (now - lastTick) / 1000.0f;
+		  lastTick = now;
 
-			  osMutexAcquire(sensorMutex, osWaitForever);
-			  data->roll = roll;
-			  data->pitch = pitch;
-			  osMutexRelease(sensorMutex);
+		  float acc_roll  = atan2(MPU6050.acc_y, MPU6050.acc_z) * 180.0f / M_PI;
+		  float acc_pitch = atan2(-MPU6050.acc_x, sqrtf(MPU6050.acc_y*MPU6050.acc_y + MPU6050.acc_z*MPU6050.acc_z))
+							  * 180.0f / M_PI;
 
-//			  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Acc | x: %f, y: %f, z: %f\r\n", MPU6050.acc_x, MPU6050.acc_y, MPU6050.acc_z);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Gyro | x: %f, y: %f, z: %f\r\n", MPU6050.gyro_x, MPU6050.gyro_y, MPU6050.gyro_z);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//			  sprintf(uart_tx_buff, "Acc Raw | x: %d, y: %d, z: %d\r\n", MPU6050.acc_x_raw, MPU6050.acc_y_raw, MPU6050.acc_z_raw);
-//			  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-			 }
-//	  printf("MPU task ran!\r\n");
+		  roll  += MPU6050.gyro_x * dt;
+		  pitch += MPU6050.gyro_y * dt;
+
+		  roll  = alpha * roll  + (1 - alpha) * acc_roll;
+		  pitch = alpha * pitch + (1 - alpha) * acc_pitch;
+
+		  sprintf(uart_tx_buff, "Roll: %f  Pitch: %f\r\n", roll, pitch);
+		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+
+		  osMutexAcquire(sensorMutex, osWaitForever);
+		  data->roll = roll;
+		  data->pitch = pitch;
+		  osMutexRelease(sensorMutex);
+	  } else {
+		  /* Keep lastTick current even when no data is ready.
+		   * Without this, skipped cycles accumulate into a huge dt
+		   * on the next successful read, causing the gyro integration
+		   * to overshoot wildly (the -111 / 90 you were seeing). */
+		  lastTick = osKernelGetTickCount();
+	  }
 	  osDelay(300);
   }
   /* USER CODE END StartMPUTask */
@@ -634,50 +720,53 @@ void StartMPUTask(void *argument)
 /* USER CODE END Header_StartThermistorsTask */
 void StartThermistorsTask(void *argument)
 {
-  /* USER CODE BEGIN StartThermistorsTask */
-	    osEventFlagsWait(adcFlag, ADC_READY_FLAG, osFlagsNoClear, osWaitForever);
-	    osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
-		uint32_t startTime = HAL_GetTick();
-	    uint32_t hours = 0;
-	    uint32_t minutes = 0;
-	    uint32_t seconds = 0;
-	    uint32_t time_elapsed = 0;
-	    SensorData *data = (SensorData *)argument;
+	printf("Thermistor task started\n");
+
+	osEventFlagsWait(adcFlag, ADC_READY_FLAG, osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+	uint32_t startTime = HAL_GetTick();
+	uint32_t hours = 0;
+	uint32_t minutes = 0;
+	uint32_t seconds = 0;
+	uint32_t time_elapsed = 0;
+	SensorData *data = (SensorData *)argument;
 //	    char uart_tx_buff[100];
 
 //	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
 //	  memset(rawValues, 0, sizeof(rawValues));  // clear data
 
-	    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+	// HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
 
 
-	  /* Infinite loop */
-	  for(;;)
-	  {
-		  if (convCompleted) {
-			  convCompleted = 0;
-			  time_elapsed = HAL_GetTick() - startTime;
-			  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
-			  for (int i=0; i<THERMISTOR_COUNT; i++) {
+  /* Infinite loop */
+  for(;;)
+  {
+	  //printf("Thermistor loop running\n");
+	  if (convCompleted) {
+		  convCompleted = 0;
+		  time_elapsed = HAL_GetTick() - startTime;
+		  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
+		  for (int i=0; i<THERMISTOR_COUNT; i++) {
 //				  thermistorValues[i] = rawValues[i];
-				  float value = ntc_convertToC(rawValues[i]);
+			  float value = ntc_convertToC(rawValues[i]);
 //				  float value = 72.01;
-				  thermistorValues[i] = value;
-				  if (i == 0) {
+			  thermistorValues[i] = value;
+			  //printf("Thermistor %d,%.2f\r\n", i, value);
+			  if (i == 0) {
 //					  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-//					  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//					  printf("Thermistor %d,%.2f\r\n", i, value);
+					  //HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
+					  //printf("Thermistor %d,%.2f\r\n", i, value);
 
-				  }
 			  }
-
-			  osMutexAcquire(sensorMutex, osWaitForever);
-			  memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
-			  osMutexRelease(sensorMutex);
 		  }
-//		  printf("Thermistors ALIVE\r\n");
-		  osDelay(1000);
+
+		  osMutexAcquire(sensorMutex, osWaitForever);
+		  memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
+		  osMutexRelease(sensorMutex);
 	  }
+//		  printf("Thermistors ALIVE\r\n");
+	  osDelay(1000);
+  }
   /* USER CODE END StartThermistorsTask */
 }
 
