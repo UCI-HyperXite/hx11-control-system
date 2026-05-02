@@ -7,14 +7,14 @@ import { EStopModal } from "./components/EStopModal";
 
 
 const podStateMap = {
-	0: "GUI_OKSTATE",
-	1: "INITSTATE",
-	2: "LOADSTATE",
-	3: "PRECHARGESTATE",
-	4: "STARTSTATE",
-	5: "STOPSTATE",
-	6: "FAULTSTATE",
-	7: "HALTSTATE",
+	1: "GUI_OKSTATE",
+	2: "INITSTATE",
+	3: "LOADSTATE",
+	4: "PRECHARGESTATE",
+	5: "STARTSTATE",
+	6: "STOPSTATE",
+	7: "FAULTSTATE",
+	8: "HALTSTATE",
 };
 
 export default function App() {
@@ -103,10 +103,10 @@ export default function App() {
 	}
 
 	function startSending(cmd, label) {
-		if (currentCmdRef.current === cmd) return; // already sending this, do nothing
+		if (currentCmdRef.current === cmd) return;
 		currentCmdRef.current = cmd;
-		clearInterval(heartbeatRef.current); // stop previous command
-		addLog(`Sending: ${label}`); // log only once
+		clearInterval(heartbeatRef.current);
+		addLog(`Sending: ${label}`); 
 
 		const sendCmd = async () => {
 			if (!portRef.current) return;
@@ -206,6 +206,7 @@ export default function App() {
 							const activeState = podStateMap[data.pod_state];
 							if (activeState) {
 								setPodState(activeState);
+								startSending(String(data.pod_state), activeState.replace("STATE", ""));
 							}
 						}
 					} catch (e) {
@@ -256,32 +257,34 @@ export default function App() {
 
 				{showEStop && <EStopModal onClose={() => setShowEStop(false)} />} {}
 
-				
+				{/* <div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
+					{Object.entries(podStateMap).map(([num, name]) => (
+						<button
+							key={num}
+							onClick={() => {
+								setPodState(name);
+								startSending(String(num), name.replace("STATE", ""));
+							}}
+							style={{
+								padding: "4px 12px",
+								background: "#333",
+								color: "white",
+								border: "none",
+								borderRadius: 4,
+								cursor: "pointer",
+								fontSize: 12,
+							}}>
+							Simulate {num}: {name}
+						</button>
+					))}
+				</div> */}
+
 				<Header podState={podState}/>
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
 				padding: "1.25vw", display: "flex", flexDirection: "column",
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} consoleLogs={consoleLogs} />
 				</div>
-
-				{/* <button
-					onClick={() => setPodState("STOPSTATE")}
-					style={{
-						position: "fixed",
-						top: 10,
-						right: 10,
-						zIndex: 999,
-						padding: "8px 16px",
-						background: "#F24822",
-						color: "white",
-						border: "none",
-						borderRadius: 4,
-						cursor: "pointer",
-						fontWeight: "bold",
-					}}>
-					Test Stop State
-				</button> */}
-
 				<Footer sendSerial={sendSerial} startSending={startSending} downloadCSV={downloadCSV} podState={podState}/>
 				</div>
 	);
