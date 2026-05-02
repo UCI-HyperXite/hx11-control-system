@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { Card } from "./Card";
 
 export function BottomRow({consoleLogs = [] }) {
@@ -9,11 +9,17 @@ export function BottomRow({consoleLogs = [] }) {
 		width: "86.49vw"
 	};
 
+	const logEndRef = useRef(null);
+	useEffect(() => {
+		logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [consoleLogs]);
+
+
 	return (
 		<div style={bottomRowStyle}>
-			<Card title="Console" style={{ height: "32.4vw", width: "24.99vw", flexShrink: 0}}>
+			{/* <Card title="Console" style={{ height: "32.4vw", width: "24.99vw", flexShrink: 0}}>
 				<div style={{
-						height: "27.35vw",
+						height: "27vw",
 						background: "#2f2740",
 						color: "#f0e6f2",
 						borderRadius: "0.993vw",
@@ -36,49 +42,49 @@ export function BottomRow({consoleLogs = [] }) {
 							fontSize: "1.868vw"
 						}}
 					>
-						&lt;&lt;
+						&gt;&gt;
 					</div>
 
-				<div
-					style={{
-					marginTop: "6vw",
-					flex: 1,
-					overflowY: "auto",
-					padding: "0 0.993vw 0.667vw 0.993vw",
-					display: "flex",
-					flexDirection: "column",
-					gap: 4,
-           		 }}>
-				{consoleLogs.length === 0 ? (
+					<div
+						style={{
+						marginTop: "6vw",
+						flex: 1,
+						overflowY: "auto",
+						padding: "0 0.993vw 0.667vw 0.993vw",
+						display: "flex",
+						flexDirection: "column",
+						gap: 4,
+					}}>
+					{consoleLogs.length === 0 ? (
 
-				<div style={{ color: "#a080b0", fontSize: "1.394vw", fontStyle: "italic" }}>
-					Waiting for connection...
+					<div style={{ color: "#a080b0", fontSize: "1.394vw", fontStyle: "italic" }}>
+						Waiting for connection...
+					</div>
+
+					) : (
+					consoleLogs.map((log, i) => (
+					<div
+						key={i}
+						style={{
+							fontSize: "1.394vw",
+							fontFamily: "monospace",
+							color: log.includes("✓") ? "#7effa0"
+								: log.includes("failed") || log.includes("error") ? "#ff8080"
+								: "#f0e6f2",
+							borderBottom: "1px solid #3d3050",
+							paddingBottom: "0.25vw",
+							wordBreak: "break-word",
+						}}
+					>
+						{log}
+					</div>
+					))
+					)}
+					<div ref={logEndRef} />
+          			</div>
 				</div>
-
-            	) : (
-              	consoleLogs.map((log, i) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: "1.394vw",
-                    fontFamily: "monospace",
-                    color: log.includes("✓") ? "#7effa0"
-                         : log.includes("failed") || log.includes("error") ? "#ff8080"
-                         : "#f0e6f2",
-                    borderBottom: "1px solid #3d3050",
-                    paddingBottom: "0.25vw",
-					wordBreak: "break-word",
-                  }}
-                >
-                  {log}
-                </div>
-              ))
-            )}
-          </div>
-		</div>
-
-			</Card>
-
+			</Card> */}
+{/* 
 			<Card
 				title="HV Battery"
 				style={{
@@ -138,7 +144,7 @@ export function BottomRow({consoleLogs = [] }) {
 						</table>
 					
 				</div>
-			</Card>
+			</Card> */}
 		</div>
 	);
 }

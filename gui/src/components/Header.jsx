@@ -2,7 +2,10 @@ import React from "react";
 import { Dot } from "./Dot";
 import HX_logo from "../assets/HX_logo.jpg";
 
+
 const podStateColors = {
+	OFF: 			"#888888",
+	GUI_OK:			"#888888",
 	INITSTATE:      "#FC95AD",
 	LOADSTATE:      "#3DADFF",
 	PRECHARGESTATE: "#FFCD29",
@@ -13,6 +16,8 @@ const podStateColors = {
 };
 
 const POD_STATES = [
+	"OFF",
+	"GUI_OK",
 	"INITSTATE",
 	"LOADSTATE",
 	"PRECHARGESTATE",
@@ -20,9 +25,9 @@ const POD_STATES = [
 	"STOPSTATE",
 	"FAULTSTATE",
 	"HALTSTATE",
-]
+];
 
-export function Header({podState}) {
+export function Header({ podState }) {
 	const headerStyle = {
 		display: "flex",
 		justifyContent: "space-between",
@@ -34,81 +39,76 @@ export function Header({podState}) {
 	const titleStyle = {
 		display: "flex",
 		alignItems: "center",
-		gap: "0.833vw",
+		gap: "0.8vw",
 		color: "#fff",
 	};
 
 	return (
 		<div className="header">
 			<div style={headerStyle}>
-			<div style={titleStyle}>
-				<div
-					style={{
-						width: "3.056vw",
-						height: "3.056vw",
-						background: "#fff",
-						borderRadius: "0.556vw",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
-						color: "#5d3b73",
-						overflow: "hidden",
-						fontWeight: 700,
-					}}
-				>
-					<img src={HX_logo} alt="HX Logo" style = {{width: "3.472v", height: "2.083vw", objectFit: "contain"}}/>
+				<div style={titleStyle}>
+					<div
+						style={{
+							width: "3vw",
+							height: "3vw",
+							background: "#fff",
+							borderRadius: "0.556vw",
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "center",
+							color: "#5d3b73",
+							overflow: "hidden",
+							fontWeight: 700,
+						}}
+					>
+						<img src={HX_logo} alt="HX Logo" style={{ width: "3.472vw", height: "2.083vw", objectFit: "contain" }} />
+					</div>
+					<div>
+						<div style={{ fontSize: "1.8vw", fontWeight: 700 }}>HyperXite 11</div>
+					</div>
 				</div>
-				<div>
-					<div style={{ fontSize: "1.944vw", fontWeight: 700 }}>HyperXite 11</div>
-				</div>
-			</div>
-
-			<div style={{
+				<div style={{
 					background: "#f7f7f7",
-					padding: "0.417vw 0.833vw",
-					borderRadius: "69vw", 
-					color: "#222", 
+					padding: "0.2vw 1vw",
+					borderRadius: "69vw",
+					color: "#222",
 					fontWeight: 700,
-					display: "flex", 
-					alignItems: "center", 
+					display: "flex",
+					alignItems: "center",
 					gap: "0.694vw",
-					fontSize: "1.389vw", 
+					fontSize: "1.4vw",
 					minWidth: "34.722vw",
 				}}>
-						POD STATE
-						<div
-							style={{
-								paddingLeft: "2.083vw",
-								display: "flex",
-								gap: "1.389vw",
-								alignItems: "center",
-							}}
-						>
-							{/* <Dot style={{ backgroundColor: podState.INITSTATE}} />
-							<Dot style={{ backgroundColor: podState.LOADSTATE }} />
-							<Dot style={{ backgroundColor: podState.PRECHARGESTATE }} />
-							<Dot style={{ backgroundColor: podState.STARTSTATE }} />
-							<Dot style={{ backgroundColor: podState.STOPSTATE }} />
-							<Dot style={{ backgroundColor: podState.FAULTSTATE }} />
-							<Dot style={{ backgroundColor: podState.HALTSTATE }} /> */}
-
-							{POD_STATES.map(state => {
-								const isActive = state === podState;
-								return (
-									<Dot
+					POD STATE:
+					<span style={{ 
+							color: podStateColors[podState],
+							fontSize: "1.8vw",
+							width: "10vw",
+							display: "inline-block",
+							textAlign: "center"}}>
+							{podState.replace("STATE", "").replace("_", " ")}
+						</span>
+					<div
+						style={{
+							paddingLeft: "2.083vw",
+							display: "flex",
+							gap: "1.3vw",
+							alignItems: "center",
+						}}
+					>
+						{POD_STATES.filter(state => state !== "OFF" && state !== "GUI_OK").map(state => {
+							const isActive = state === podState;
+							return (
+								<Dot
 									key={state}
 									className={isActive ? "dot-blink" : ""}
 									style={{ backgroundColor: podStateColors[state] }}
-									/>
-								);
-							})}
-						</div>
+								/>
+							);
+						})}
 					</div>
 				</div>
 			</div>
-			
-			
-	
-		
+		</div>
 	);
 }

@@ -2,17 +2,19 @@ import React from "react";
 import "./App.css";
 import { Header } from "./components/Header";
 import { TopRow } from "./components/TopRow";
-import { BottomRow } from "./components/BottomRow";
 import { Footer } from "./components/Footer";
+import { EStopModal } from "./components/EStopModal";
+
 
 const podStateMap = {
-	0: "INITSTATE",
-	1: "LOADSTATE",
-	2: "PRECHARGESTATE",
-	3: "STARTSTATE",
-	4: "STOPSTATE",
-	5: "FAULTSTATE",
-	6: "HALTSTATE",
+	0: "GUI_OKSTATE",
+	1: "INITSTATE",
+	2: "LOADSTATE",
+	3: "PRECHARGESTATE",
+	4: "STARTSTATE",
+	5: "STOPSTATE",
+	6: "FAULTSTATE",
+	7: "HALTSTATE",
 };
 
 export default function App() {
@@ -23,13 +25,8 @@ export default function App() {
 	position: "0.00",
 	speed: "0.00",
 
-	// accelerationx: "0.00",
-    // accelerationy: "0.00",
-    // accelerationz: "0.00",
-
 	gyrox: "0.00",
     gyroy: "0.00",
-    // gyroz: "0.00",
 
     limVoltage: "0.00",
     limCurrent: "0.00",
@@ -40,10 +37,8 @@ export default function App() {
     battTemp: "0.00",
     imdStatus: "Insulated",
 	
-	
     current1: "0",
     current2: "0",
-
 
     therm1: "0.00",
     therm2: "0.00", 
@@ -53,27 +48,10 @@ export default function App() {
     therm6: "0.00",
     therm7: "0.00",
     therm8: "0.00",
-
-
-  //   hvbatt: [
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7:
-  // "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //     { cell0: "0.00", cell1: "0.00", cell2: "0.00", cell3: "0.00", cell4: "0.00", cell5: "0.00", cell6: "0.00", cell7: "0.00", cell8: "0.00", cell9: "0.00", cell10: "0.00", cell11: "0.00", cell12: "0.00", sum: "0.00" },
-  //   ]
 	});
 
 	// State for POD STATE dot colors from API
-	const [podState, setPodState] = React.useState(null);
+	const [podState, setPodState] = React.useState("OFF");
 	
 	const [isConnected, setIsConnected] = React.useState(false);
 	const [consoleLogs, setConsoleLogs] = React.useState([]);
@@ -81,10 +59,15 @@ export default function App() {
   	const portRef = React.useRef(null);
 	const csvRowsRef = React.useRef([]); // CSV accumulator
 
-		function addLog(message) {
-			const timestamp = new Date().toLocaleTimeString();
-			setConsoleLogs(prev => [`[${timestamp}] ${message}`, ...prev].slice(0, 50));
-		}
+	const heartbeatRef = React.useRef(null);
+	const currentCmdRef = React.useRef(null);
+
+	const [showEStop, setShowEStop] = React.useState(false);
+
+	function addLog(message) {
+		const timestamp = new Date().toLocaleTimeString();
+		setConsoleLogs(prev => [...prev, `[${timestamp}] ${message}`].slice(0, 10000));
+	}
 
 	function downloadCSV() {
 		const rows = csvRowsRef.current;
@@ -105,12 +88,51 @@ export default function App() {
 		URL.revokeObjectURL(url);
 	}
 
+	async function sendSerial(message) {
+		if (!portRef.current || !isConnected) return;
+		try {
+		const encoder = new TextEncoderStream();
+		encoder.readable.pipeTo(portRef.current.writable);
+		const writer = encoder.writable.getWriter();
+		await writer.write(message);
+		await writer.close();
+		addLog(`Sent: ${message.trim()}`);
+		} catch (err) {
+			addLog(`Send failed: ${err.message}`);
+		}
+	}
+
+	function startSending(cmd, label) {
+		if (currentCmdRef.current === cmd) return; // already sending this, do nothing
+		currentCmdRef.current = cmd;
+		clearInterval(heartbeatRef.current); // stop previous command
+		addLog(`Sending: ${label}`); // log only once
+
+		const sendCmd = async () => {
+			if (!portRef.current) return;
+			try {
+				const encoder = new TextEncoderStream();
+				encoder.readable.pipeTo(portRef.current.writable);
+				const writer = encoder.writable.getWriter();
+				await writer.write(`${cmd}\n`);
+				await writer.close();
+			} catch (e) {
+				clearInterval(heartbeatRef.current);
+			}
+		};
+		sendCmd();
+		heartbeatRef.current = setInterval(sendCmd, 500);
+	}
+
 	async function connectSerial(){
 		try{
 			const port = await navigator.serial.requestPort();
 			await port.open({ baudRate: 115200 });
 			portRef.current = port;
 			setIsConnected(true);
+			startSending("1", "OK");
+			setPodState("GUI_OK");
+
 			console.log("Serial connected ✓");
       		addLog("Serial connected ✓");
 
@@ -140,17 +162,10 @@ export default function App() {
 
 						setTelemetry(prev => ({
 							...prev,
-							// time: data.time ?? prev.time,
 							distance: data.lidar ?? prev.distance,
-							// podState: data.pod_state ??prev.podState,
-							// position: data.position ?? prev.position,
-							// speed: data.speed ?? prev.speed,
-							// accelerationx: data.accelerationx ?? prev.accelerationx,
-							// accelerationy: data.accelerationy ?? prev.accelerationy,
-							// accelerationz: data.accelerationz ?? prev.accelerationz,
+							
 							gyrox: data.roll ?? prev.gyrox,
 							gyroy: data.pitch ?? prev.gyroy,
-							// gyroz: data.gyroz ?? prev.gyroz,
 							limVoltage: data.lim_volt ?? prev.limVoltage,
 							limCurrent: data.lim_curr ?? prev.limCurrent,
 							battVoltage: data.hv_batt ?? prev.battVoltage,
@@ -160,13 +175,11 @@ export default function App() {
 							battTemp: data.hv_batt_temp ?? prev.battTemp,
 							imdStatus: data.imd ?? prev.imdStatus,
 							
-				
 							current1: data.pt_up ?? prev.current1,
 							current2: data.pt_down ?? prev.current2,
 							
 							// {"lidar":0,"pod_state":1,"roll":0.00,"pitch":0.00,"therms":[20.43,33.09,41.80,59.81,65.01,70.80,83.82,80.72],"pt_up":0.00,"pt_down":0.00,"lv_batt":0.00,"hv_batt_temp":0.00,"hv_batt":0.00,"msg":"Whatever message"}
 							
-
 							therm1: data.therms?.[0]?.toFixed(2) ?? prev.therm1,
 							therm2: data.therms?.[1]?.toFixed(2) ?? prev.therm2,
 							therm3: data.therms?.[2]?.toFixed(2) ?? prev.therm3,
@@ -176,6 +189,10 @@ export default function App() {
 							therm7: data.therms?.[6]?.toFixed(2) ?? prev.therm7,
 							therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
 						}));
+						
+						if (data.msg === "ESTOP") { 
+    						setShowEStop(true);
+						}
 
 						csvRowsRef.current.push({
 							time: new Date().toISOString(),
@@ -185,17 +202,13 @@ export default function App() {
 							// therm4: data.therms?.[3]?.toFixed(2) ?? "",
 
 						});
-
-
 						if (data.pod_state !== undefined) {
 							const activeState = podStateMap[data.pod_state];
 							if (activeState) {
 								setPodState(activeState);
 							}
 						}
-					
 					} catch (e) {
-						// Not valid JSON — could be a partial line or non-JSON message
 						console.warn("Could not parse line:", line);
             			addLog(`Parse error: ${line.trim().slice(0, 40)}`);
 					}
@@ -208,19 +221,6 @@ export default function App() {
 		}
 	}
 
-	async function sendSerial(message) {
-		if (!portRef.current || !isConnected) return;
-		try {
-		const encoder = new TextEncoderStream();
-		encoder.readable.pipeTo(portRef.current.writable);
-		const writer = encoder.writable.getWriter();
-		await writer.write(message);
-		await writer.close();
-		addLog(`Sent: ${message.trim()}`);
-		} catch (err) {
-			addLog(`Send failed: ${err.message}`);
-		}
-	}
 
 	return (
 		<div style={{ 
@@ -253,30 +253,36 @@ export default function App() {
 					)}
 				</div>
 				)}
-				<Header podState={podState} />
+
+				{showEStop && <EStopModal onClose={() => setShowEStop(false)} />} {}
+
+				
+				<Header podState={podState}/>
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
 				padding: "1.25vw", display: "flex", flexDirection: "column",
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
-					<TopRow telemetry={telemetry} />
-					<BottomRow consoleLogs={consoleLogs}/>
-				
-					<button
-						onClick={downloadCSV}
-						style={{
-							padding: "8px 24px",
-							background: "#3DADFF",
-							marginLeft: 8,
-							color: "white",
-							border: "none",
-							borderRadius: 4,
-							cursor: "pointer",
-							fontWeight: "bold",
-							fontSize: 14
-						}}>
-						Export CSV
-				</button>
+					<TopRow telemetry={telemetry} consoleLogs={consoleLogs} />
 				</div>
-				<Footer sendSerial={sendSerial}/>
+
+				{/* <button
+					onClick={() => setPodState("STOPSTATE")}
+					style={{
+						position: "fixed",
+						top: 10,
+						right: 10,
+						zIndex: 999,
+						padding: "8px 16px",
+						background: "#F24822",
+						color: "white",
+						border: "none",
+						borderRadius: 4,
+						cursor: "pointer",
+						fontWeight: "bold",
+					}}>
+					Test Stop State
+				</button> */}
+
+				<Footer sendSerial={sendSerial} startSending={startSending} downloadCSV={downloadCSV} podState={podState}/>
 				</div>
 	);
 }

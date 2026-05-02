@@ -1,16 +1,21 @@
 
-import React, {useState} from "react";
+import React, {useState, useRef, useEffect} from "react";
 import { Card } from "./Card";
 
 
-export function TopRow({ telemetry }) {
+export function TopRow({ telemetry, consoleLogs = [] }) {
 	const [testGyro, setTestGyro] = useState({ x: 0, y: 0 });
+	// const logEndRef = useRef(null);
+	// useEffect(() => { 
+	// 	logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	// }, [consoleLogs]);
+
 	return (
 		<div style={{ 
 			display: "flex", 
 			gap: "1.25vw", 
 			alignItems: "flex-start",
-			width: "86.49vw"
+			width: "100%",
 			}}>
 
 			{/* LEFT COLUMN */}
@@ -23,11 +28,11 @@ export function TopRow({ telemetry }) {
 				{/* Top two cards */}
 				<div style={{ display: "flex", gap: "1.25vw" }}>
 					<Card style={{ 
-						height: "13.7vw", 
-						width: "15vw", 
+						height: "12vw", 
+						width: "11vw", 
 						flexShrink: 0, 
 						fontWeight: "bold", 
-						fontSize: "1.406vw", 
+						fontSize: "1.2vw", 
 						lineHeight: 2, 
 						paddingLeft: "1.2vw",
 						paddingTop: "1.2vw" }}>
@@ -39,12 +44,12 @@ export function TopRow({ telemetry }) {
 
 					<Card title="Rotation" 
 						style={{ 
-							width: "26.667vw", 
+							width: "19vw", 
 							flexShrink: 0,
 							paddingBottom: "0.5vw"
 						}}>
-					<div className="rotTable" style={{ marginTop: "-1vw", display: "flex", alignItems: "center", gap: "1vw", }}>
-						<table style={{ fontSize: "1.7vw", fontWeight: "bold" }}>
+					<div className="rotTable" style={{ marginTop: "-2vw", display: "flex", alignItems: "center", gap: "1vw", marginRight: "-3vw"}}>
+						<table style={{ fontSize: "1.2vw", fontWeight: "bold" }}>
 							<thead>
 								<tr><th>Gyro</th></tr>
 							</thead>
@@ -96,7 +101,7 @@ export function TopRow({ telemetry }) {
 							const gradY = 50 - yNorm * 20;
 
 							return (
-								<svg viewBox="0 0 100 100" style={{ width: "10vw", flexShrink: 0, marginLeft: "1vw", marginTop: "0.1vw" }}>
+								<svg viewBox="0 0 100 100" style={{ width: "9vw",flexShrink: 0, marginTop: "0.1vw" }}>
 								<defs>
 									<clipPath id="gyroClip">
 									<circle cx={cx} cy={cy} r={r - 1} />
@@ -152,49 +157,49 @@ export function TopRow({ telemetry }) {
 
 				{/* Middle cards below */}
 				<div style={{ display: "flex", gap: "1.5vw" }}>
-					<Card title="Pressure" style={{ width: "20.2vw", flexShrink: 0 }}>
-						<div style={{ marginTop: "-0.5vw" }}>
-							<table style={{ fontSize: "1.6vw", fontWeight: "bold", width: "100%", marginTop: "1vw"}} className="INA219Table">
+					<Card title="Pressure" style={{ width: "13vw", flexShrink: 0 }}>
+						<div style={{ marginTop: "-1.5vw" }}>
+							<table style={{ fontSize: "1.2vw", fontWeight: "bold", width: "100%", marginTop: "1vw"}} className="INA219Table">
 								<thead>
-									<tr style={{fontSize: "1.8vw"}}>
+									<tr style={{fontSize: "1vw"}}>
 										<th style={{ width: "55%" }}>INA219</th>
 										<th style={{ width: "45%" }}>Value</th>
 									</tr>
 								</thead>
 								<tbody>
 									{[
-										["current1:", `${telemetry.current1} mA`],
-										["current2:", `${telemetry.current2} mA`],
+										["up:", `${telemetry.current1} PSI`],
+										["down:", `${telemetry.current2} PSI`],
 									].map(([label, value]) => (
 										<tr key={label}><td>{label}</td><td>{value}</td></tr>
 									))}
 								</tbody>
 							</table>
-							<table style={{ fontSize: "1.6vw", fontWeight: "bold", width: "100%", marginTop: "1.7vw" }} className="INA219Table">
+							{/* <table style={{ fontSize: "1.2vw", fontWeight: "bold", width: "100%", marginTop: "1.7vw" }} className="INA219Table">
 									<thead>
-										<tr style={{fontSize: "1.8vw"}}>
+										<tr style={{fontSize: "1.3vw"}}>
 											<th style={{ width: "55%" }}>INA260</th>
 											<th style={{ width: "45%" }}>Value</th>
 										</tr>
 									</thead>
 									<tbody>
-  										<tr><td>current1:</td><td>{telemetry.current1} mA</td></tr>
+  										<tr><td>LV current:</td><td>{telemetry.current1} mA</td></tr>
 									</tbody>
-							</table>
+							</table> */}
 						</div>
 					</Card>
 
-					<Card title="LIM Temperature" style={{ width: "21.667vw", flexShrink: 0}}>
+					<Card title="LIM Temperature" style={{ width: "17vw", flexShrink: 0}}>
 						<table style={{ width: "100%" }} className="TempTable">
 							<thead>
-								<tr style = {{fontSize: "1.4vw"}}>
+								<tr style = {{fontSize: "1vw"}}>
 									<th style={{ width: "15%" }}>Th#</th>
 									<th style={{ width: "35%" }}>Temp</th>
 									<th style={{ width: "15%" }}>Th#</th>
 									<th style={{ width: "35%" }}>Temp</th>
 								</tr>
 							</thead>
-							<tbody style = {{fontSize: "1.35vw"}}>
+							<tbody style = {{fontSize: "1.2vw"}}>
 								{[1, 2, 3, 4].map(i => (
 									<tr key={i}>
 										<td>{i}</td>
@@ -211,18 +216,19 @@ export function TopRow({ telemetry }) {
 			</div>
 
 			{/* RIGHT COLUMN — Other Info spans full height */}
-			<Card title="Other Info" style={{ width: "41.664vw", flexShrink: 0, alignSelf: "stretch" }}>
+			<Card title="Other Info" style={{ width: "36vw", flexShrink: 0,}}>
 				<div style={{
 					background: "#2f2740", 
 					color: "#f0e6f2", 
 					borderRadius: "0.833vw",
-					padding: "0 1.042vw", 
+					padding: "0 1vw", 
 					fontWeight: "bold", 
-					fontSize: "1.0vw", 
-					lineHeight: 3,
+					fontSize: "0.88vw", 
+					lineHeight: "2.95vw",
+					
 				}}>
 					<div className="OtherInfoTable">
-						<table style={{ width: "100%" }}>
+						<table style={{ width: "100%", }}>
 							<thead>
 								<tr>
 									<th style={{ width: "40%" }}></th>
@@ -240,7 +246,7 @@ export function TopRow({ telemetry }) {
 									["HV Batt SoC:", telemetry.battSoC, "%"],
 									["LIM Voltage:", telemetry.limVoltage, "V"],
 									["LIM Current:", telemetry.limCurrent, "A"],
-									["LV Batt Voltage (INA260)", telemetry.lvbattVoltage, "V"],
+									["LV Batt Voltage ", telemetry.lvbattVoltage, "V"],
 									
 									["Batt Temp:", telemetry.battTemp, "°C"],
 									["IMD Status:", telemetry.imdStatus, ""],
@@ -258,6 +264,82 @@ export function TopRow({ telemetry }) {
 					</div>
 				</div>
 			</Card>
+
+			<Card title="Console" style={{ 
+				
+				width: "27vw", 
+				flexShrink: 0,
+				display: "flex",
+				flexDirection: "column",
+				maxHeight: "50vw"
+				}}>
+							<div style={{
+									height: "30.3vw",
+									background: "#2f2740",
+									color: "#f0e6f2",
+									borderRadius: "0.993vw",
+									overflowY: "auto",
+									display: "flex",
+									flexDirection: "column",
+									position: "relative",
+									overflow: "hidden",
+									justifyContent: "center",
+									alignItems: "center",
+									fontSize: "1.1vw",
+									gap: "0.333vw"
+								}}
+							>
+								<div
+									style={{
+										position: "absolute",
+										top: "1.25vw",
+										left: "1.25vw",
+										fontSize: "1.868vw"
+									}}
+								>
+									&gt;&gt;
+								</div>
+			
+								<div
+									style={{
+									marginTop: "6vw",
+									flex: 1,
+									overflowY: "auto",
+									padding: "0 0.993vw 0.667vw 0.993vw",
+									display: "flex",
+									flexDirection: "column",
+									gap: 4,
+								}}>
+								{consoleLogs.length === 0 ? (
+			
+								<div style={{ color: "#a080b0", fontSize: "1.1vw", fontStyle: "italic" }}>
+									Waiting for connection...
+								</div>
+			
+								) : (
+								[...consoleLogs].reverse().map((log, i) => (
+								<div
+									key={i}
+									style={{
+										fontSize: "1.1vw",
+										fontFamily: "monospace",
+										color: log.includes("✓") ? "#7effa0"
+											: log.includes("failed") || log.includes("error") ? "#ff8080"
+											: "#f0e6f2",
+										borderBottom: "1px solid #3d3050",
+										paddingBottom: "0.5vw",
+										wordBreak: "break-word",
+									}}
+								>
+									{log}
+								</div>
+								))
+								)}
+								{/* <div ref={logEndRef} /> */}
+								</div>
+							</div>
+						</Card>
+						
 
 		</div>
 	);

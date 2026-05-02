@@ -1,6 +1,6 @@
 import React from "react";
 
-export function Dot({ size = "2.222vw", style, className = "" }) {
+export function Dot({ size = "1.8vw", style, className = "" }) {
 	return (
 		<div
 			className={className}
