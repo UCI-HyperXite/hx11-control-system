@@ -69,10 +69,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   static bool senderLocked = false;
   static uint8_t knownSender[6];
 
-  if (len != sizeof(uint8_t)) {
-    Serial.println("Invalid packet size");
-    return;
-  }
+  if (len != sizeof(SensorData)) return;
 
   if (!senderLocked) {
     memcpy(knownSender, mac, 6);
@@ -92,51 +89,56 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
     return;
   }
 
-  if (len == sizeof(SensorData)) {
-    // Serial.print("RSSI: ");
-    // Serial.println(rssi);
-    memcpy(&telemetryData, incomingData, sizeof(telemetryData));
-    lastHeartbeatESP = millis();
-    sentESTOP = false;
-    
-    // Web Serial printing (read as json in gui code)
-    Serial.print("{");
-    // Serial.print("\"RSSI\":"); Serial.print(rssi);
-    Serial.print("\"lidar\":"); Serial.print(telemetryData.lidar_distance);
-    Serial.print(",\"pod_state\":"); Serial.print(telemetryData.pod_state);
-    Serial.print(",\"roll\":"); Serial.print(telemetryData.roll, 2);
-    Serial.print(",\"pitch\":"); Serial.print(telemetryData.pitch, 2);
-    
-    // Add thermistors
-    Serial.print(",\"therms\":["); 
-    for(int i = 0; i < 8; i++) {
-      Serial.print(telemetryData.thermistors[i], 2);
-      if (i < 7) Serial.print(",");
-    }
-    Serial.print("]");
+  // Serial.print("RSSI: ");
+  // Serial.println(rssi);
+  memcpy(&telemetryData, incomingData, sizeof(telemetryData));
+  lastHeartbeatESP = millis();
 
-    // Pressure sensors
-    Serial.print(",\"pt_up\":"); Serial.print(telemetryData.pt_up, 2);
-    Serial.print(",\"pt_down\":"); Serial.print(telemetryData.pt_down, 2);
-
-    // Batteries
-    Serial.print(",\"lv_batt\":"); Serial.print(telemetryData.lv_batt, 2);
-    Serial.print(",\"hv_batt_temp\":"); Serial.print(telemetryData.hv_batt_temp, 2);
-    Serial.print(",\"hv_batt\":"); Serial.print(telemetryData.hv_batt, 2);
-
-    Serial.print(",\"msg\":\"");
-    telemetryData.message[99] = '\0';
-
-    for (int i = 0; i < 100 && telemetryData.message[i] != '\0'; i++) {
-      if (telemetryData.message[i] == '"') {
-        Serial.print("\\\"");
-      } else {
-        Serial.print(telemetryData.message[i]);
-      }
-    }
-    Serial.print("\"");
-    Serial.println("}");
+  if (strcmp(telemetryData.message, "ESTOP") == 0) {
+    Serial.println("ESTOP");
+    sentESTOP = true;
+    return;
   }
+
+  sentESTOP = false;
+  
+  // Web Serial printing (read as json in gui code)
+  Serial.print("{");
+  // Serial.print("\"RSSI\":"); Serial.print(rssi);
+  Serial.print("\"lidar\":"); Serial.print(telemetryData.lidar_distance);
+  Serial.print(",\"pod_state\":"); Serial.print(telemetryData.pod_state);
+  Serial.print(",\"roll\":"); Serial.print(telemetryData.roll, 2);
+  Serial.print(",\"pitch\":"); Serial.print(telemetryData.pitch, 2);
+  
+  // Add thermistors
+  Serial.print(",\"therms\":["); 
+  for(int i = 0; i < 8; i++) {
+    Serial.print(telemetryData.thermistors[i], 2);
+    if (i < 7) Serial.print(",");
+  }
+  Serial.print("]");
+
+  // Pressure sensors
+  Serial.print(",\"pt_up\":"); Serial.print(telemetryData.pt_up, 2);
+  Serial.print(",\"pt_down\":"); Serial.print(telemetryData.pt_down, 2);
+
+  // Batteries
+  Serial.print(",\"lv_batt\":"); Serial.print(telemetryData.lv_batt, 2);
+  Serial.print(",\"hv_batt_temp\":"); Serial.print(telemetryData.hv_batt_temp, 2);
+  Serial.print(",\"hv_batt\":"); Serial.print(telemetryData.hv_batt, 2);
+
+  Serial.print(",\"msg\":\"");
+  telemetryData.message[99] = '\0';
+
+  for (int i = 0; i < 100 && telemetryData.message[i] != '\0'; i++) {
+    if (telemetryData.message[i] == '"') {
+      Serial.print("\\\"");
+    } else {
+      Serial.print(telemetryData.message[i]);
+    }
+  }
+  Serial.print("\"");
+  Serial.println("}");
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -259,5 +261,6 @@ void loop() {
   if (sentESTOP != true && (millis()-lastHeartbeatESP) > timeoutMs) {
     Serial.println("ESTOP");
     sentESTOP = true;
+    return;
   }
 }
