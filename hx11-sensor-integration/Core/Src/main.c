@@ -99,7 +99,12 @@ void StartFSMTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define GUI_CONNECTED (1 << 0)
+#define ADC_READY_FLAG (1 << 0)
+#define SENSOR_INIT_DONE (1 << 0)
+#define THERMISTOR_COUNT 8
 
+/*  DEFINE STRUCTS  */
 typedef struct __attribute__((packed)) {
 	uint8_t start_marker;
 	uint32_t lidar_dist;
@@ -115,28 +120,30 @@ typedef struct __attribute__((packed)) {
 	char message[100];
 } SensorData;
 
-
 typedef enum {
+	NONE,
+	GUI_OK,
 	INIT,
 	LOAD,
 	PRECHARGE,
 	START,
 	STOP,
 	FAULT,
-	HALT,
-} pod_status;
+} pod_state_t;
 
 typedef enum {
     CMD_NONE,
+	CMD_OK,
 	CMD_INIT,
     CMD_LOAD,
-    CMD_PRECHARGE,
-    CMD_STOP
+	CMD_PRECHARGE,
+    CMD_STOP,
+	CMD_FAULT
 } GUICommand;
 
 typedef struct {
-    pod_status currentState;
-    pod_status previousState;
+	pod_state_t currentState;
+	pod_state_t previousState;
     uint8_t stateEntry; // 1 when entering new state
 } FSM_t;
 
@@ -148,23 +155,25 @@ typedef struct {
     uint8_t tiltOk; // roll, pitch
     uint8_t pneumaticsOk;
     uint8_t batteryOk;
-
     uint8_t allOk;
 } PreRunStatus;
 
-FSM_t fsm = {
-		.currentState = INIT,
-		.previousState = HALT,
-		.stateEntry = 1
+
+/*  DEFINE VARIABLES  */
+
+static FSM_t fsm = {
+	.currentState = NONE,
+	.previousState = NONE,
+	.stateEntry = 1
 };
 
-volatile uint8_t guiCommand = 0;
 static SensorData sensorData;
-PreRunStatus preRun;
-
-#define THERMISTOR_COUNT 8
 uint16_t rawValues[THERMISTOR_COUNT];
 float thermistorValues[THERMISTOR_COUNT];
+
+PreRunStatus preRun;
+
+volatile uint8_t guiCommand = 0;
 INA219_t ina219_left;
 INA219_t ina219_right;
 uint32_t object_distance;
@@ -174,13 +183,12 @@ uint8_t mpu_ok = 0;
 uint8_t ina_left_ok = 0;
 uint8_t ina_right_ok = 0;
 
-#define SENSOR_INIT_DONE (1 << 0)
-#define ADC_READY_FLAG (1 << 0)
-osMessageQueueId_t commandQueue;
 osMutexId_t sensorMutex;
 osMutexId_t i2cMutex;
+osEventFlagsId_t GUIConnectionFlag;
 osEventFlagsId_t sensorInitFlag;
 osEventFlagsId_t adcFlag;
+
 
 volatile uint8_t convCompleted = 0;
 volatile uint8_t firstConversionComplete = 0;
@@ -196,11 +204,14 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 }
 
 uint8_t rxBuffer[1];
-volatile uint8_t newCommandFlag = 0;
+uint32_t lastESPHeartbeat = 0;
+volatile uint8_t currentCmd = 0;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == UART7) {
-        newCommandFlag = 1;
+        uint8_t cmd = rxBuffer[0];
         HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
+		lastESPHeartbeat = HAL_GetTick();
+		currentCmd = cmd;
     }
 }
 
@@ -230,14 +241,14 @@ int main(void)
   /* Init scheduler */
   osKernelInitialize();
 
-  commandQueue = osMessageQueueNew(10, sizeof(uint8_t), NULL);
-  if (commandQueue == NULL) Error_Handler();
-
   sensorMutex = osMutexNew(NULL);
   if (sensorMutex == NULL) Error_Handler();
 
   i2cMutex = osMutexNew(NULL);
   if (i2cMutex == NULL) Error_Handler();
+
+  GUIConnectionFlag = osEventFlagsNew(NULL);
+  if (GUIConnectionFlag == NULL) Error_Handler();
 
   sensorInitFlag = osEventFlagsNew(NULL);
   if (sensorInitFlag == NULL) Error_Handler();
@@ -246,13 +257,13 @@ int main(void)
   if (adcFlag == NULL) Error_Handler();
 
   /* Create the thread(s) */
-  lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
-  mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
+//  lidarTaskHandle = osThreadNew(StartLidarTask, &sensorData, &lidarTask_attributes);
+//  mpuTaskHandle = osThreadNew(StartMPUTask, &sensorData, &mpuTask_attributes);
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, &sensorData, &thermistorsTask_attributes);
 //  INATaskHandle = osThreadNew(StartINATask, &sensorData, &INATask_attributes);
-//  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
-//  commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
-  fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
+  telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
+  commandTaskHandle = osThreadNew(StartCommandTask, NULL, &commandTask_attributes);
+//  fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
 
   /* Initialize leds */
   BSP_LED_Init(LED_GREEN);
@@ -316,23 +327,24 @@ void blink_red(void)
     }
 }
 
+void blink_color(uint8_t r, uint8_t g, uint8_t b) {
+	static uint32_t lastToggle = 0;
+	static uint8_t ledOn = 0;
+	if (osKernelGetTickCount() - lastToggle > 500) {
+		lastToggle = osKernelGetTickCount();
+		ledOn = !ledOn;
+		if (ledOn) {
+			WS2812_SetAll(r, g, b);
+		} else {
+			WS2812_SetAll(0, 0, 0);
+		}
+		WS2812_Start();
+	}
+}
+
 
 void init_sensors(void) {
-  printf("===== I2C1 BUS SCAN =====\r\n");
-  uint8_t found = 0;
-  for (uint8_t addr = 1; addr < 128; addr++) {
-    if (HAL_I2C_IsDeviceReady(&hi2c1, addr << 1, 1, 10) == HAL_OK) {
-      printf("  0x%02X ACK\r\n", addr);
-      found++;
-    }
-  }
-  if (found == 0) {
-    printf("  NO DEVICES FOUNDfsdsdfsdffsdsdfSDA/SCL wiring order\r\n");
-  }
-  printf("  %d device(s) on bus\r\n", found);
-  printf("=========================\r\n");
 
-  // LIDAR
   printf("LIDAR initializing...\r\n");
   lidar_init(&hi2c1);
   osMutexAcquire(i2cMutex, osWaitForever);
@@ -377,20 +389,11 @@ void init_sensors(void) {
   //HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
   if (HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT) != HAL_OK) {
 	  printf("❌ ADC DMA failed to start\r\n");
+	  // Send errors to POD
   } else {
 	  printf("✅ ADC DMA started\r\n");
+	  osEventFlagsSet(adcFlag, ADC_READY_FLAG);
   }
-
-
-//  printf("Before ADC start\n");
-//
-//  HAL_StatusTypeDef res = HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-//
-//  printf("After ADC start, res=%d\n", res);
-//  HAL_Delay(50);
-//  printf("Still alive after delay\n");
-//
-//  printf("got here");
 //  osEventFlagsSet(adcFlag, ADC_READY_FLAG);
 
 
@@ -610,34 +613,33 @@ void halt_actions(SensorData *data) {
 void StartLidarTask(void *argument)
 {
   /* USER CODE BEGIN 5 */
-//	printf("Lidar Task Starting...\r\n");
-
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 
-		if (!lidar_ok) {
-			printf("LiDAR task: sensor not available, suspending\r\n");
-			osThreadSuspend(osThreadGetId());
-		}
+//	if (!lidar_ok) {
+//		printf("LiDAR task: sensor not available, suspending\r\n");
+//		osThreadSuspend(osThreadGetId());
+//	}
 
-		char uart_tx_buff[100];
-		SensorData *data = (SensorData *)argument;
+	char uart_tx_buff[100];
+	SensorData *data = (SensorData *)argument;
 
-		for(;;)
-		{
-			//printf("flag=%d\r\n", convCompleted);
-			osMutexAcquire(i2cMutex, osWaitForever);
-			object_distance = retrieve_lidar_distance();
-			osMutexRelease(i2cMutex);
+	for(;;)
+	{
+		osMutexAcquire(i2cMutex, osWaitForever);
+		object_distance = retrieve_lidar_distance();
+		osMutexRelease(i2cMutex);
 
-			osMutexAcquire(sensorMutex, osWaitForever);
-			data->lidar_dist = object_distance;
-			osMutexRelease(sensorMutex);
+		osMutexAcquire(sensorMutex, osWaitForever);
+		sensorData.lidar_dist = object_distance;
+		data->lidar_dist = object_distance;
+		osMutexRelease(sensorMutex);
 
-			sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
-			HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+		sprintf(uart_tx_buff, "LIDAR Distance: %lu cm\r\n", object_distance);
+		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-			osDelay(300);
-		}
+		osDelay(300);
+	}
   /* USER CODE END 5 */
 }
 
@@ -650,12 +652,14 @@ void StartLidarTask(void *argument)
 /* USER CODE END Header_StartMPUTask */
 void StartMPUTask(void *argument)
 {
-  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+	printf("MPU Waiting\r\n");
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 
-  if (!mpu_ok) {
-	  printf("MPU task: sensor not available, suspending\r\n");
-	  osThreadSuspend(osThreadGetId());
-  }
+//  if (!mpu_ok) {
+//	  printf("MPU task: sensor not available, suspending\r\n");
+//	  osThreadSuspend(osThreadGetId());
+//  }
 
   float roll = 0, pitch = 0;
   const float alpha = 0.98f;
@@ -667,6 +671,7 @@ void StartMPUTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
+	  printf("MPU Running\r\n");
 	  /* DataReady() does an I2C read (MPU6050_INT_STATUS register),
 	   * so it MUST be inside the i2cMutex. Previously it was unprotected,
 	   * which caused bus collisions with LiDAR/INA tasks on the same I2C1. */
@@ -696,6 +701,8 @@ void StartMPUTask(void *argument)
 		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
 		  osMutexAcquire(sensorMutex, osWaitForever);
+		  sensorData.roll = roll;
+		  sensorData.pitch = pitch;
 		  data->roll = roll;
 		  data->pitch = pitch;
 		  osMutexRelease(sensorMutex);
@@ -720,52 +727,39 @@ void StartMPUTask(void *argument)
 /* USER CODE END Header_StartThermistorsTask */
 void StartThermistorsTask(void *argument)
 {
-	printf("Thermistor task started\n");
-
+	printf("Thermistor Waiting\r\n");
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 	osEventFlagsWait(adcFlag, ADC_READY_FLAG, osFlagsNoClear, osWaitForever);
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
 	uint32_t startTime = HAL_GetTick();
 	uint32_t hours = 0;
 	uint32_t minutes = 0;
 	uint32_t seconds = 0;
 	uint32_t time_elapsed = 0;
-	SensorData *data = (SensorData *)argument;
-//	    char uart_tx_buff[100];
 
-//	    hadc1.Init.ContinuousConvMode = ENABLE; // DMA in circular mode
-//	  memset(rawValues, 0, sizeof(rawValues));  // clear data
-
-	// HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
-
-
+//	SensorData *data = (SensorData *)argument;
   /* Infinite loop */
-  for(;;)
-  {
-	  //printf("Thermistor loop running\n");
-	  if (convCompleted) {
-		  convCompleted = 0;
-		  time_elapsed = HAL_GetTick() - startTime;
-		  convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
-		  for (int i=0; i<THERMISTOR_COUNT; i++) {
-//				  thermistorValues[i] = rawValues[i];
-			  float value = ntc_convertToC(rawValues[i]);
-//				  float value = 72.01;
-			  thermistorValues[i] = value;
-			  //printf("Thermistor %d,%.2f\r\n", i, value);
-			  if (i == 0) {
-//					  sprintf(uart_tx_buff, "Thermistor %d,%.2f,%02lu:%02lu:%02lu\r\n", i, value, hours, minutes, seconds);
-					  //HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-					  //printf("Thermistor %d,%.2f\r\n", i, value);
+	for(;;)
+	{
+		osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+		osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+		printf("Thermistors Running\r\n");
+		if (convCompleted) {
+			printf("Thermistors Written\r\n");
+			convCompleted = 0;
+			time_elapsed = HAL_GetTick() - startTime;
+			convert_millis_to_hms(time_elapsed, &hours, &minutes, &seconds);
+			for (int i=0; i<THERMISTOR_COUNT; i++) {
+				thermistorValues[i] = ntc_convertToC(rawValues[i]);;
+			}
 
-			  }
-		  }
-
-		  osMutexAcquire(sensorMutex, osWaitForever);
-		  memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
-		  osMutexRelease(sensorMutex);
-	  }
-//		  printf("Thermistors ALIVE\r\n");
-	  osDelay(1000);
+			osMutexAcquire(sensorMutex, osWaitForever);
+			memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
+			//memcpy(data->thermistors, thermistorValues, sizeof(data->thermistors));
+			osMutexRelease(sensorMutex);
+		}
+		osDelay(1000);
   }
   /* USER CODE END StartThermistorsTask */
 }
@@ -780,64 +774,32 @@ void StartThermistorsTask(void *argument)
 void StartINATask(void *argument)
 {
   /* USER CODE BEGIN StartINATask */
-	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
-	  SensorData *data = (SensorData *)argument;
-	  uint16_t vbus, vshunt, current, power;
-	  uint16_t vbus1, vshunt1, current1, power1;
-//	  char uart_tx_buff[100];
+	printf("INA Waiting\r\n");
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+	SensorData *data = (SensorData *)argument;
+	uint16_t current_up, current_down;
 
 	  /* Infinite loop */
 	  for(;;)
 	  {
+		  printf("INA Running\r\n");
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus = INA219_ReadBusVoltage(&ina219_left);
-		  vshunt = INA219_ReadShuntVoltage(&ina219_left);
-		  current = INA219_ReadCurrent(&ina219_left);
-		  power = INA219_ReadPower(&ina219_left);
+		  current_up = INA219_ReadCurrent(&ina219_left);
 		  osMutexRelease(i2cMutex);
 
-
-//		  sprintf(uart_tx_buff, "vbus: %hu mV\r\n",vbus);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "vShunt: %hu mV\r\n",vshunt);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "current: %hu mA\r\n",current);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "power: %hu mW\r\n",power );
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  vbus1 = INA219_ReadBusVoltage(&ina219_right);
-		  vshunt1 = INA219_ReadShuntVoltage(&ina219_right);
-		  current1 = INA219_ReadCurrent(&ina219_right);
-		  power1 = INA219_ReadPower(&ina219_right);
+		  current_down = INA219_ReadCurrent(&ina219_right);
 		  osMutexRelease(i2cMutex);
 
 		  osMutexAcquire(sensorMutex, osWaitForever);
-		  data->pt_up = power;
-		  data->pt_down = power1;
+		  sensorData.pt_up = current_up;
+		  sensorData.pt_down = current_down;
+		  data->pt_up = current_up;
+		  data->pt_down = current_down;
 		  osMutexRelease(sensorMutex);
-//
-//		  sprintf(uart_tx_buff, "vbus 1: %hu mV\r\n",vbus1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "vShunt 1: %hu mV\r\n",vshunt1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "current 1: %hu mA\r\n",current1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
-//
-//		  sprintf(uart_tx_buff, "power 1: %hu mW\r\n\n",power1);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t *)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-//		printf("INA Task Alive!\r\n");
-//		  sprintf(uart_tx_buff, "INA Task\r\n");
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-
-		osDelay(300);
+		  osDelay(300);
 	  }
   /* USER CODE END StartINATask */
 }
@@ -853,44 +815,40 @@ void StartTelemetryTask(void *argument)
 {
   /* USER CODE BEGIN StartTelemetryTask */
   /* Infinite loop */
-  char uart_tx_buff[100];
-  for(;;)
-  {
+	char uart_tx_buff[100];
+	printf("Telemetry Waiting\r\n");
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 
-	  sprintf(uart_tx_buff, "Starting telemetry task\r\n");
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  sensorData.start_marker = 0xAA;
-	  sensorData.lidar_dist = 13;
-	  sensorData.roll = 2;
-	  sensorData.pitch = 3;
-	  memcpy(sensorData.thermistors, thermistorValues, sizeof(sensorData.thermistors));
-	  sensorData.pt_up = 4;
-	  sensorData.pt_down = 5;
-	  sensorData.lv_batt = 6;
-	  sensorData.hv_batt_temp = 7;
-	  sensorData.batt_soc = 8;
-	  sensorData.lim_volt = 9;
-	  sensorData.lim_curr = 10;
-	  sensorData.hv_batt = 11;
-	  sensorData.imd = 12;
-	  sensorData.pod_state = 1;
-	  strncpy(sensorData.message, "Whatever message", sizeof(sensorData.message));
-	  // DMA problem??
-//	  HAL_UART_Transmit_DMA(&huart7, (uint8_t*)&sensorData, sizeof(SensorData));
-	  sprintf(uart_tx_buff, "Send telemetry data\r\n");
-	  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+	for(;;)
+	{
+		osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+		osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+		sprintf(uart_tx_buff, "Telemetry Sending NOW\r\n");
+		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+		sensorData.start_marker = 0xAA;
+		sensorData.lv_batt = 6;
+		sensorData.hv_batt_temp = 7;
+		sensorData.batt_soc = 8;
+		sensorData.lim_volt = 9;
+		sensorData.lim_curr = 10;
+		sensorData.hv_batt = 11;
+		sensorData.imd = 12;
 
-	  HAL_StatusTypeDef res = HAL_UART_Transmit(&huart7, (uint8_t*)&sensorData, sizeof(SensorData), 100);
+		HAL_UART_Transmit(&huart7, (uint8_t*)&sensorData, sizeof(SensorData), 100);
+		sprintf(uart_tx_buff, "UART7 Sent %d bytes successfully\r\n", sizeof(SensorData));
+		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
-	  if (res == HAL_OK) {
-	      sprintf(uart_tx_buff, "UART7 Sent %d bytes successfully\r\n", sizeof(SensorData));
-	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  } else {
-	      sprintf(uart_tx_buff, "UART7 ERROR! Status: %d, Code: %lu\r\n", res, huart7.ErrorCode);
-	      HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
-	  }
+
+//		if (HAL_UART_GetState(&huart7) == HAL_UART_STATE_READY)
+//		{
+		// TODO: CAN'T DO NON BLOCKING TRANSMIT UNTIL SET UP UART7 TX DMA IN IOC
+//		  HAL_UART_Transmit_DMA(&huart7, (uint8_t*)&sensorData, sizeof(SensorData));
+//		  sprintf(uart_tx_buff, "UART7 Sent %d bytes successfully\r\n", sizeof(SensorData));
+//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+//		}
 	  osDelay(1000);
-  }
+	}
   /* USER CODE END StartTelemetryTask */
 }
 
@@ -905,32 +863,98 @@ void StartCommandTask(void *argument)
 {
   /* USER CODE BEGIN StartCommandTask */
   /* Infinite loop */
+	printf("Start Receiving Commands!!\r\n");
 	HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
-	char cmd_debug_msg[50];
-  for(;;)
-  {
-	  if (newCommandFlag == 1) {
-		  newCommandFlag = 0;
-		  u_int8_t recievedCmd = rxBuffer[0]; // pulled command from the queue
-		  osMessageQueuePut(commandQueue, &recievedCmd, 0, 0);
+	char msg[50];
+	uint8_t prev_cmd = 0;
+	const char *cmdNames[] = {
+	    "NONE", "GUI_OK", "INIT", "LOAD", "START", "STOP", "FAULT"
+	};
 
-		  sprintf(cmd_debug_msg, ">>>>>>>>>>>>>RECEIVED CMD: %d\r\n", rxBuffer[0]);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
-		  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
-			  HAL_UART_AbortReceive(&huart7);
-		  }
-		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
-	  } else {
-//		  printf("No command received....\r\n");
-	  }
-	  if (huart7.ErrorCode != HAL_UART_ERROR_NONE) {
-		  sprintf(cmd_debug_msg, "UART7 Error Detected: %lu. Resetting...\r\n", huart7.ErrorCode);
-//		  HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)cmd_debug_msg, strlen(cmd_debug_msg), 100);
 
-		  HAL_UART_AbortReceive(&huart7);
-		  HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
-	  }
-    osDelay(500);
+	for(;;)
+	{
+		if (HAL_GetTick() - lastESPHeartbeat > 2000)
+		{
+		  osEventFlagsClear(GUIConnectionFlag, GUI_CONNECTED);
+		  currentCmd = 0;
+		}
+
+		uint8_t cmd = currentCmd;
+
+		if (cmd != prev_cmd) {
+			prev_cmd = cmd;
+			fsm.previousState = fsm.currentState;
+
+			switch (cmd) {
+			case 0:
+				osEventFlagsClear(GUIConnectionFlag, GUI_CONNECTED);
+				osEventFlagsClear(sensorInitFlag, SENSOR_INIT_DONE);
+				fsm.currentState = NONE;
+				// TODO: STOP POD GO WAIT FOR GUI CONNECTION
+				break;
+			case 1:
+				// TODO: GUI OK WAIT FOR INIT
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				osEventFlagsClear(sensorInitFlag, SENSOR_INIT_DONE);
+
+				fsm.currentState = GUI_OK;
+				break;
+			case 2:
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				fsm.currentState = INIT;
+				osEventFlagsClear(sensorInitFlag, SENSOR_INIT_DONE);
+				// TODO: INIT, THEN WAIT FOR LOAD
+
+				/* INIT SENSORS START */
+				if (HAL_ADC_GetState(&hadc1) != HAL_ADC_STATE_RESET) {
+					HAL_ADC_Stop_DMA(&hadc1);
+				}
+			    memset(rawValues, 0, sizeof(rawValues));
+			    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
+			    osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
+
+				/* INIT SENSORS END */
+
+				break;
+			case 3:
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				fsm.currentState = LOAD;
+				// TODO: LOAD -> PRECHARGE, THEN WAIT FOR START ( CAN BE STOPPED)
+				break;
+			case 4:
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				fsm.currentState = START;
+				// TODO: START, WAIT FOR STOP
+				break;
+			case 5:
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				fsm.currentState = STOP;
+				// TODO: STOP THE POD!! WAIT FOR LOAD CMD
+				break;
+			case 6:
+				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				fsm.currentState = FAULT;
+				// TODO: FAULT ACK, WAIT FOR INIT OR LOAD (depends on error)
+				break;
+			default:
+				osEventFlagsClear(GUIConnectionFlag, GUI_CONNECTED);
+				osEventFlagsClear(sensorInitFlag, SENSOR_INIT_DONE);
+				fsm.currentState = NONE;
+				// TODO: STOP POD
+				break;
+			}
+
+			sensorData.pod_state = (uint8_t)fsm.currentState;
+
+			const char *cmdName = (cmd < sizeof(cmdNames) / sizeof(cmdNames[0])) ? cmdNames[cmd] : "UNKNOWN";
+			snprintf(sensorData.message, sizeof(sensorData.message), "Received %s command", cmdName);
+
+			sprintf(msg, "NEW CMD: %d\r\n", cmd);
+            HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)msg, strlen(msg), 100);
+		}
+
+	  osDelay(10);
   }
   /* USER CODE END StartCommandTask */
 }
@@ -946,6 +970,9 @@ void StartFSMTask(void *argument)
 {
   /* USER CODE BEGIN StartFSMTask */
   /* Infinite loop */
+
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+
   for(;;)
   {
 	    //run_pre_run_checklist(&sensorData);
@@ -961,9 +988,6 @@ void StartFSMTask(void *argument)
 		uint8_t pendingCmd;
 		bool hasCommand = false; // checks to see if queue is empty
 
-		if (osMessageQueueGet(commandQueue, &pendingCmd, NULL, 0) == osOK) { // reads and pops a cmd from queue
-			hasCommand = true;
-		}
 
 		switch(fsm.currentState) {
 		case INIT:
@@ -1045,21 +1069,21 @@ void StartFSMTask(void *argument)
 			}
 
 			fsm.previousState = fsm.currentState;
-			fsm.currentState = HALT;
+			fsm.currentState = FAULT;  // TODO: I CHANGED THIS
 			fsm.stateEntry = 1;
 			break;
-		case HALT:
-			if (fsm.stateEntry) {
-				halt_actions(&sensorData);
-				fsm.stateEntry = 0;
-			}
-
-			fsm.previousState = fsm.currentState;
-			if (hasCommand && pendingCmd == CMD_INIT) {
-				fsm.currentState = INIT;
-				fsm.stateEntry = 1;
-			}
-			break;
+//		case HALT:
+//			if (fsm.stateEntry) {
+//				halt_actions(&sensorData);
+//				fsm.stateEntry = 0;
+//			}
+//
+//			fsm.previousState = fsm.currentState;
+//			if (hasCommand && pendingCmd == CMD_INIT) {
+//				fsm.currentState = INIT;
+//				fsm.stateEntry = 1;
+//			}
+//			break;
 		case STOP:
 			if (fsm.stateEntry) {
 				stop_actions(&sensorData);
