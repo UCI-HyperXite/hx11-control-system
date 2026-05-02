@@ -7,6 +7,7 @@
   Data Structures 
 */
 enum class PodState:uint8_t {
+  GUI_OK,
 	INIT,
 	LOAD,
 	PRECHARGE,
@@ -18,6 +19,7 @@ enum class PodState:uint8_t {
 
 enum class GUICommand:uint8_t {
   NONE,
+  OK,
   INIT,
   LOAD,
   START,
@@ -36,53 +38,72 @@ typedef struct __attribute__((packed)) SensorData {
 	char message[100];
 } SensorData;
 
-
-/* ESP32 - STM32 */
-// receives stm32 data from stm32
-  // normal priority
-// send gui command to stm32
-  // high priority
-// send stm32 data to esp32
-  // normal priority
-// receives gui command from esp32
-  // high priority
-
-
 /* 
   Variables 
 */
-uint8_t broadcastAddress[] = {0x68, 0xFE, 0x71, 0x90, 0x76, 0x88};
 // 68:fe:71:90:76:88  <-- Laptop
 // 68:fe:71:90:76:90  <-- STM32
+uint8_t broadcastAddress[] = {0x68, 0xFE, 0x71, 0x90, 0x76, 0x88};
+
 esp_now_peer_info_t peerInfo;
 const uint8_t START_BYTE = 0xAA;
 
-SensorData buffer[5];
-int head = 0;
+SensorData telemetryData;
+GUICommand command = GUICommand::NONE;
 
 unsigned long lastHeartbeatSTM = 0;
 unsigned long lastHeartbeatESP = 0;
 const unsigned long timeoutMs = 2000;
-GUICommand cmd = GUICommand::NONE;
-SensorData telemetryData;
-GUICommand guiCMD = GUICommand::NONE;
-
 unsigned long lastLoop = 0;
+
+bool stmTimedOut = false;
+bool espTimedOut = false;
 
 /* 
   Function Definitions 
 */
 
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  
-  Serial.println(">>> PACKET RECEIVED <<<");
-  lastHeartbeatESP = millis();
-  if (len == sizeof(uint8_t)) {
-    uint8_t receivedByte = *incomingData;
-    Serial2.write(receivedByte);
-    Serial.print("Was sent this command: ");
-    Serial.println(receivedByte);
+  static bool senderLocked = false;
+  static uint8_t knownSender[6];
+
+  if (len != sizeof(uint8_t)) {
+    Serial.println("Invalid packet size");
+    return;
   }
+
+  if (!senderLocked) {
+    memcpy(knownSender, mac, 6);
+    senderLocked = true;
+    Serial.print("Sender locked: ");
+    for (int i = 0; i < 6; i++) {
+      if (mac[i] < 16) Serial.print("0");
+      Serial.print(mac[i], HEX);
+      if (i < 5) Serial.print(":");
+    }
+    Serial.println();
+  }
+
+  // Filter for only our ESP's messages
+  if (memcmp(mac, knownSender, 6) != 0) {
+    Serial.println("Data received but not the correct address");
+    return;
+  }
+
+  lastHeartbeatESP = millis();
+  espTimedOut = false;
+  uint8_t receivedByte = *incomingData;
+
+  if (receivedByte > static_cast<uint8_t>(GUICommand::STOP)) {
+    Serial.println("Invalid command value");
+    return;
+  }
+
+  command = static_cast<GUICommand>(receivedByte);
+  Serial2.write(receivedByte);
+
+  Serial.print("Command received: ");
+  Serial.println(receivedByte);
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
@@ -107,7 +128,6 @@ bool readPacket() {
     Serial.println("Bad packet alignment");
     return false;
   }
-
   return true;
 }
 
@@ -129,7 +149,8 @@ void setup() {
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
-    // TODO: Return fatal error to GUI
+    Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
+    ESP.restart();
     return;
   }
   
@@ -150,86 +171,63 @@ void setup() {
   }
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
+    Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
+    ESP.restart();
+    return;
   }
 
-  // esp_task_wdt_init(2, true);
-  // esp_task_wdt_add(NULL);
+  // TODO: esp_task_wdt_init(2, true);
+  // TODO: esp_task_wdt_add(NULL);
 
 }
 
-bool stmTimedOut = false;
-int counter = 0;
 void loop() {
   /* ESP32 - STM32 */
-  // esp_task_wdt_reset();
+  // TODO: esp_task_wdt_reset();
 
   if (millis() - lastLoop < 50) {
     return;
   }
-
   lastLoop = millis();
 
   if (readPacket()) {
     lastHeartbeatSTM = millis();
+    stmTimedOut = false;
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&telemetryData, sizeof(SensorData));
 
     if (result != ESP_OK) {
+      // TODO: count number of fails before sending -1 to STM and restarting ESP
       Serial.println("Send queue failed");
-    }
-
-    Serial.println("Packet received from STM32!");
-
-    Serial.print("Lidar: ");
-    Serial.print(telemetryData.lidar_distance);
-    Serial.print(" | State: ");
-    Serial.println(telemetryData.pod_state);
-    
-    Serial.print("Temps: ");
-    for(int i=0; i<8; i++) {
-      Serial.print(telemetryData.thermistors[i], 2); 
-      Serial.print(" ");
-    }
-    Serial.println("\n-------------------------");
-
-    // // Serial2.write((uint8_t)GUICommand::LOAD);
-    // Serial2.write(2);
-  } else {
-    counter += 1;
-    if (counter %5 == 0) {
-      Serial.println("No serial available");
     }
   }
 
   if ((millis()-lastHeartbeatSTM) > timeoutMs) {
+    // TODO: What to do when STM doesn't send anything
+    // Cases: GUI not connected  || STM frozen || Telemetry task blocked
+    if (stmTimedOut) return;
+
+    if (command == GUICommand::NONE) return;
+
+    stmTimedOut = true;
     Serial.println("STM32 TIMEOUT");
+    SensorData eStopPacket = {};
+    strcpy(eStopPacket.message, "ESTOP");
+    eStopPacket.start_marker = START_BYTE;
 
-    if (!stmTimedOut) {
-      stmTimedOut = true;
-      Serial.println("STM32 TIMEOUT");
-      uint8_t stopCmd = (uint8_t)GUICommand::STOP;
-      Serial2.write(stopCmd);
-    }
+    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&eStopPacket, sizeof(SensorData));
 
-    // TODO: Close the breaks somehow
-    // TODO: Inform the GUI
-    // Serial.println("STM32 has not responded in " + String(millis()-lastHeartbeatSTM) + " ms");  // TODO: Remove this
   } else {
     stmTimedOut = false;
   }
 
-  
-  // if (result != ESP_OK) {
-  //   // TODO: ERROR HANDLING
-  //   Serial.println("Message was not queued for transmission");
-  // }
-
   if ((millis()-lastHeartbeatESP) > timeoutMs) {
-    // Serial.println("ESP-NOW TIMEOUT");
-    uint8_t stopCmd = (uint8_t)GUICommand::STOP;
-    Serial2.write(stopCmd);
+    if (espTimedOut) return;
 
-    // TODO: Close the breaks somehow
-    // Send message to STM32 to close the breaks bcuz lost connection
-    Serial.println("ESP32 has not responded in " + String(millis()-lastHeartbeatESP) + " ms");  // TODO: Remove this
+    espTimedOut = true;
+    Serial.println("ESP-NOW TIMEOUT");
+    command = GUICommand::NONE;
+    Serial2.write((uint8_t)command);
+  } else { 
+    espTimedOut = false;
   }
 }

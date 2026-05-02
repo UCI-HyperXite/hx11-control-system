@@ -7,6 +7,7 @@
   Data Structures 
 */
 enum class PodState:uint8_t {
+  GUI_OK,
 	INIT,
 	LOAD,
 	PRECHARGE,
@@ -16,10 +17,10 @@ enum class PodState:uint8_t {
 	HALT
 };
 
-
 enum class GUICommand:uint8_t {
   NONE,
   OK,
+  INIT,
   LOAD,
   START,
   STOP
@@ -41,41 +42,62 @@ typedef struct __attribute__((packed)) SensorData {
 /* 
   Variables 
 */
-uint8_t broadcastAddress[] = {0x68, 0xFE, 0x71, 0x90, 0x76, 0x90};
 // 68:fe:71:90:76:88  <-- Laptop
 // 68:fe:71:90:76:90  <-- STM32
+uint8_t broadcastAddress[] = {0x68, 0xFE, 0x71, 0x90, 0x76, 0x90};
+
 esp_now_peer_info_t peerInfo;
 const uint8_t START_BYTE = 0xAA;
 
-SensorData buffer[5];
-int head = 0;
+SensorData telemetryData;
+GUICommand command = GUICommand::NONE;
 
-PodState podStatus = PodState::INIT;
-SensorData telemetryData;  // Assign from ESP32 (other)
-uint8_t command = 10;  // Assign from Laptop
 unsigned long lastHeartbeatESP = 0;
 unsigned long lastSendTime = 0;
-const unsigned long timeoutMs = 2000;  // TODO: change from 2 seconds
-
+const unsigned long timeoutMs = 2000;
 unsigned long lastLoop = 0;
+
+bool sentESTOP = false;
 
 /* 
   Function Definitions 
 */
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  // if (memcmp(mac, broadcastAddress, 6) != 0) {
-  //   return;
-  // }
-
   // Check signal strength
   // wifi_promiscuous_pkt_t *pkt = (wifi_promiscuous_pkt_t *)(incomingData - sizeof(wifi_pkt_rx_ctrl_t) - 12);
   // int rssi = pkt->rx_ctrl.rssi;
+  static bool senderLocked = false;
+  static uint8_t knownSender[6];
+
+  if (len != sizeof(uint8_t)) {
+    Serial.println("Invalid packet size");
+    return;
+  }
+
+  if (!senderLocked) {
+    memcpy(knownSender, mac, 6);
+    senderLocked = true;
+    Serial.print("Sender locked: ");
+    for (int i = 0; i < 6; i++) {
+      if (mac[i] < 16) Serial.print("0");
+      Serial.print(mac[i], HEX);
+      if (i < 5) Serial.print(":");
+    }
+    Serial.println();
+  }
+
+  // Filter for only our ESP's messages
+  if (memcmp(mac, knownSender, 6) != 0) {
+    Serial.println("Data received but not the correct address");
+    return;
+  }
 
   if (len == sizeof(SensorData)) {
     // Serial.print("RSSI: ");
     // Serial.println(rssi);
     memcpy(&telemetryData, incomingData, sizeof(telemetryData));
     lastHeartbeatESP = millis();
+    sentESTOP = false;
     
     // Web Serial printing (read as json in gui code)
     Serial.print("{");
@@ -113,14 +135,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
       }
     }
     Serial.print("\"");
-
     Serial.println("}");
   }
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   if (status != ESP_NOW_SEND_SUCCESS) {
-      Serial.println("Delivery Fail");
+    Serial.println("Delivery Fail");
   }
 }
 
@@ -140,7 +161,6 @@ bool readPacket() {
     Serial.println("Bad packet alignment");
     return false;
   }
-
   return true;
 }
 
@@ -166,7 +186,7 @@ void setup() {
 
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
-    Serial.println("Error initializing ESP-NOW");
+    Serial.println("Error initializing ESP-NOW. Restarting now.");
     ESP.restart();
   }
   
@@ -196,19 +216,15 @@ void setup() {
     ESP.restart();
   }
  
-  // esp_task_wdt_init(2, true);
-  // esp_task_wdt_add(NULL);
-
+  // TODO: esp_task_wdt_init(2, true);
+  // TODO: esp_task_wdt_add(NULL);
 }
 
-bool stmTimedOut = false;
 void loop() {
-  // esp_task_wdt_reset();
-
+  // TODO: esp_task_wdt_reset();
   if (millis() - lastLoop < 50) {
     return;
   }
-
   lastLoop = millis();
 
   // CONNECT to laptop serial
@@ -219,7 +235,7 @@ void loop() {
     if (input.length() > 0) {
       int parsed = input.toInt();
       if (parsed != 0 || input == "0") {
-        command = (uint8_t)parsed;
+        command = (GUICommand)parsed;
       }
       esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&command, sizeof(command));
       if (result != ESP_OK) {
@@ -229,20 +245,19 @@ void loop() {
     }
   }
 
+  // THIS heartbeat
   unsigned long now = millis();
-  if (now - lastSendTime >= 1000) {
+  if (now - lastSendTime >= 1500) {
     lastSendTime = now;
+    command = GUICommand::NONE;
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&command, sizeof(command));
     if (result != ESP_OK) {
       Serial.println("Message was not queued for transmission");
     }
   }
 
-  if ((millis()-lastHeartbeatESP) > timeoutMs) {
-    // TODO: Close the breaks somehow
-    // Send message to STM32 to close the breaks bcuz lost connection
-    // Serial.println("ESP32 has not responded in " + String(millis()-lastHeartbeatESP) + " ms");  // TODO: Remove this
+  if (sentESTOP != true && (millis()-lastHeartbeatESP) > timeoutMs) {
+    Serial.println("ESTOP");
+    sentESTOP = true;
   }
-
-  
 }
