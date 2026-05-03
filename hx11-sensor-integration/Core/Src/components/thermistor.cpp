@@ -34,7 +34,7 @@ float ntc_convertToC(uint32_t adcValue)
 {
 	if (adcValue == 0) adcValue = 1;
 	if (adcValue >= _NTC_ADC_MAX) adcValue = _NTC_ADC_MAX - 1;
-	float rntc = (float)_NTC_R_SERIES / (((float)_NTC_ADC_MAX / (float)adcValue ) - 1.0f);
+	float rntc = _NTC_R_SERIES * (((float)_NTC_ADC_MAX / (float)adcValue) - 1.0f);
 	float temp;
 	temp = rntc / (float)_NTC_R_NOMINAL;
 	temp = logf(temp);
