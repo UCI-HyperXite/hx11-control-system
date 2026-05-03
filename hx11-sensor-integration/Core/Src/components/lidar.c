@@ -8,12 +8,14 @@
 
 I2C_HandleTypeDef *LIDAR_I2C_Handler;
 static uint32_t m_distance;
-static uint8_t cmd[1];
+uint8_t cmd[1];
 static uint8_t data[2]={10};
 
 void lidar_init(I2C_HandleTypeDef *hi2c)
 {
     LIDAR_I2C_Handler = hi2c;
+    uint8_t reset = 0x00;
+	HAL_I2C_Mem_Write(hi2c, LIDAR_ADD, 0x00, 1, &reset, 1, 0x1000);
 }
 
 void lidar_config(int configur)
