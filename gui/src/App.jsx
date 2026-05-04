@@ -5,6 +5,9 @@ import { TopRow } from "./components/TopRow";
 import { Footer } from "./components/Footer";
 import { EStopModal } from "./components/EStopModal";
 
+// TODO: for each state, turn off the buttons for states it can't go to
+// TODO: change on esp: make ESTOP send in a JSON format
+
 
 const podStateMap = {
 	1: "GUI_OKSTATE",
@@ -25,8 +28,8 @@ export default function App() {
 	position: "0.00",
 	speed: "0.00",
 
-	gyrox: "0.00",
-    gyroy: "0.00",
+	roll: "0.00",
+    pitch: "0.00",
 
     limVoltage: "0.00",
     limCurrent: "0.00",
@@ -61,6 +64,8 @@ export default function App() {
 
 	const heartbeatRef = React.useRef(null);
 	const currentCmdRef = React.useRef(null);
+	const connectedAtRef = React.useRef(null);
+	const timerIntervalRef = React.useRef(null);
 
 	const [showEStop, setShowEStop] = React.useState(false);
 
@@ -73,7 +78,8 @@ export default function App() {
 		const rows = csvRowsRef.current;
 		// if (rows.length === 0) return;
 
-		const header = ["time", "therm1", "therm2", "therm3", "therm4"];
+		const header = ["time", "therm1", "therm2", "therm3", "therm4", "therm5", "therm6", 
+			"therm7", "therm8", "roll", "pitch"];
 		const csvContent = [
 			header.join(","),
 			...rows.map(r => header.map(k => r[k]).join(","))
@@ -86,20 +92,6 @@ export default function App() {
 		a.download = `therms_${Date.now()}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
-	}
-
-	async function sendSerial(message) {
-		if (!portRef.current || !isConnected) return;
-		try {
-		const encoder = new TextEncoderStream();
-		encoder.readable.pipeTo(portRef.current.writable);
-		const writer = encoder.writable.getWriter();
-		await writer.write(message);
-		await writer.close();
-		addLog(`Sent: ${message.trim()}`);
-		} catch (err) {
-			addLog(`Send failed: ${err.message}`);
-		}
 	}
 
 	function startSending(cmd, label) {
@@ -118,6 +110,7 @@ export default function App() {
 				await writer.close();
 			} catch (e) {
 				clearInterval(heartbeatRef.current);
+				addLog(`Send failed: ${err.message}`);
 			}
 		};
 		sendCmd();
@@ -130,10 +123,22 @@ export default function App() {
 			await port.open({ baudRate: 115200 });
 			portRef.current = port;
 			setIsConnected(true);
+			connectedAtRef.current = Date.now();
+
+			timerIntervalRef.current = setInterval(() => {
+				const elapsed = Date.now() - connectedAtRef.current;
+				const h = Math.floor(elapsed / 3600000);
+				const m = Math.floor((elapsed % 3600000) / 60000);
+				const s = Math.floor((elapsed % 60000) / 1000);
+				setTelemetry(prev => ({
+					...prev,
+					time: `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`
+				}));
+			}, 1000);
+
 			startSending("1", "OK");
 			setPodState("GUI_OK");
 
-			console.log("Serial connected ✓");
       		addLog("Serial connected ✓");
 
 			const decoder = new TextDecoderStream();
@@ -145,9 +150,14 @@ export default function App() {
 			while (true) {
 				const { value, done } = await reader.read();
 				if (done){
-					console.log("Serial disconnected");
 					addLog("Serial disconnected");
 					setIsConnected(false);
+					clearInterval(heartbeatRef.current);
+					clearInterval(timerIntervalRef.current);
+					connectedAtRef.current = null;
+					currentCmdRef.current = null;
+					portRef.current = null;
+					setPodState("OFF");
 					break;
 				}
 
@@ -156,6 +166,7 @@ export default function App() {
         		buffer = lines.pop();
 				
 				for (const line of lines) {
+					addLog(`RX: ${line.trim()}`);
          			try {
 						const data = JSON.parse(line.trim());
 						if (data.RSSI !== undefined) console.log("RSSI:", data.RSSI);
@@ -164,8 +175,8 @@ export default function App() {
 							...prev,
 							distance: data.lidar ?? prev.distance,
 							
-							gyrox: data.roll ?? prev.gyrox,
-							gyroy: data.pitch ?? prev.gyroy,
+							roll: data.roll ?? prev.roll,
+							pitch: data.pitch ?? prev.pitch,
 							limVoltage: data.lim_volt ?? prev.limVoltage,
 							limCurrent: data.lim_curr ?? prev.limCurrent,
 							battVoltage: data.hv_batt ?? prev.battVoltage,
@@ -197,21 +208,27 @@ export default function App() {
 						csvRowsRef.current.push({
 							time: new Date().toISOString(),
 							therm1: data.therms?.[0]?.toFixed(2) ?? "",
-							// therm2: data.therms?.[1]?.toFixed(2) ?? "",
-							// therm3: data.therms?.[2]?.toFixed(2) ?? "",
-							// therm4: data.therms?.[3]?.toFixed(2) ?? "",
-
+							therm2: data.therms?.[1]?.toFixed(2) ?? "",
+							therm3: data.therms?.[2]?.toFixed(2) ?? "",
+							therm4: data.therms?.[3]?.toFixed(2) ?? "",
+							therm5: data.therms?.[4]?.toFixed(2) ?? "",
+							therm6: data.therms?.[5]?.toFixed(2) ?? "",
+							therm7: data.therms?.[6]?.toFixed(2) ?? "",
+							therm8: data.therms?.[7]?.toFixed(2) ?? "",
+							roll: data.roll,
+							pitch: data.pitch,
 						});
+
 						if (data.pod_state !== undefined) {
 							const activeState = podStateMap[data.pod_state];
 							if (activeState) {
 								setPodState(activeState);
-								startSending(String(data.pod_state), activeState.replace("STATE", ""));
+								//startSending(String(data.pod_state), activeState.replace("STATE", ""));
 							}
 						}
 					} catch (e) {
-						console.warn("Could not parse line:", line);
-            			addLog(`Parse error: ${line.trim().slice(0, 40)}`);
+						//console.warn("Could not parse line:", line);
+            			//addLog(`Parse error: ${line.trim()}`);
 					}
 				}
 			}
@@ -221,7 +238,6 @@ export default function App() {
 			setIsConnected(false);
 		}
 	}
-
 
 	return (
 		<div style={{ 
@@ -285,7 +301,7 @@ export default function App() {
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} consoleLogs={consoleLogs} />
 				</div>
-				<Footer sendSerial={sendSerial} startSending={startSending} downloadCSV={downloadCSV} podState={podState}/>
+				<Footer startSending={startSending} downloadCSV={downloadCSV} podState={podState}/>
 				</div>
 	);
 }

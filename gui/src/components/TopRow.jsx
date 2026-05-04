@@ -4,12 +4,17 @@ import { Card } from "./Card";
 
 
 export function TopRow({ telemetry, consoleLogs = [] }) {
-	const [testGyro, setTestGyro] = useState({ x: 0, y: 0 });
-	// const logEndRef = useRef(null);
-	// useEffect(() => { 
-	// 	logEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	// }, [consoleLogs]);
 
+	function thermColor(temp) {
+		const t = parseFloat(temp);
+		if (t >= 70) return "#ff6868";
+		if (t >= 60) return "#ff8972";  
+		if (t >= 50) return "#fcae7a";
+		if (t >= 40) return "#fff5b9";
+		if (t >= 30) return "#ffffd7";
+		if (t >= 15) return "#f0f0f0";
+		return "#bdf1ff";                
+	}
 	return (
 		<div style={{ 
 			display: "flex", 
@@ -29,7 +34,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 				<div style={{ display: "flex", gap: "1.25vw" }}>
 					<Card style={{ 
 						height: "12vw", 
-						width: "11vw", 
+						width: "14vw", 
 						flexShrink: 0, 
 						fontWeight: "bold", 
 						fontSize: "1.2vw", 
@@ -44,11 +49,11 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 
 					<Card title="Rotation" 
 						style={{ 
-							width: "19vw", 
+							width: "17.5vw", 
 							flexShrink: 0,
 							paddingBottom: "0.5vw"
 						}}>
-					<div className="rotTable" style={{ marginTop: "-2vw", display: "flex", alignItems: "center", gap: "1vw", marginRight: "-3vw"}}>
+					<div className="rotTable" style={{ marginTop: "-2vw", display: "flex", alignItems: "center", marginRight: "-2vw", }}>
 						<table style={{ fontSize: "1.2vw", fontWeight: "bold" }}>
 							<thead>
 								<tr><th>Gyro</th></tr>
@@ -56,8 +61,8 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 							<tbody>
 								<tr>
 									<td>
-										<div>X: {telemetry.gyrox} rad/s</div>
-										<div>Y: {telemetry.gyroy} rad/s</div>
+										<div>x: {telemetry.roll} rad/s</div>
+										<div>y: {telemetry.pitch} rad/s</div>
 									</td>
 								</tr>
 							</tbody>
@@ -68,8 +73,8 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 							const cx = 50, cy = 50, r = 40;
 							const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-							const xNorm = clamp(testGyro.x, -2, 2) / 2; // roll:  -1 to 1
-							const yNorm = clamp(testGyro.y, -2, 2) / 2;  // pitch: -1 to 1
+							const xNorm = clamp(parseFloat(telemetry.roll), -2, 2) / 2; // roll:  -1 to 1
+							const yNorm = clamp(parseFloat(telemetry.pitch), -2, 2) / 2;  // pitch: -1 to 1
 
 							const rollAngle = xNorm * (Math.PI / 2);  // ±90° tilt of major axis
 							const ry = r * Math.abs(yNorm);            // minor axis: 0=flat line, r=full circle
@@ -101,7 +106,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 							const gradY = 50 - yNorm * 20;
 
 							return (
-								<svg viewBox="0 0 100 100" style={{ width: "9vw",flexShrink: 0, marginTop: "0.1vw" }}>
+								<svg viewBox="0 0 100 100" style={{ width: "8vw",flexShrink: 0, marginTop: "0.1vw" }}>
 								<defs>
 									<clipPath id="gyroClip">
 									<circle cx={cx} cy={cy} r={r - 1} />
@@ -144,14 +149,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 								</svg>
 							);
 							})()}
-	
-
-
 					</div>
-					{/* <input type="range" min="-2" max="2" step="0.1"
-						onChange={e => setTestGyro(p => ({ ...p, x: +e.target.value }))} />
-					<input type="range" min="-2" max="2" step="0.1"
-						onChange={e => setTestGyro(p => ({ ...p, y: +e.target.value }))} /> */}
 					</Card>
 				</div>
 
@@ -193,21 +191,25 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 						<table style={{ width: "100%" }} className="TempTable">
 							<thead>
 								<tr style = {{fontSize: "1vw"}}>
-									<th style={{ width: "15%" }}>Th#</th>
-									<th style={{ width: "35%" }}>Temp</th>
-									<th style={{ width: "15%" }}>Th#</th>
-									<th style={{ width: "35%" }}>Temp</th>
+									<th style={{ width: "14%" }}>Th#</th>
+									<th style={{ width: "36%" }}>Temp</th>
+									<th style={{ width: "14%" }}>Th#</th>
+									<th style={{ width: "36%" }}>Temp</th>
 								</tr>
 							</thead>
-							<tbody style = {{fontSize: "1.2vw"}}>
+							<tbody style = {{fontSize: "1.1vw"}}>
 								{[1, 2, 3, 4].map(i => (
-									<tr key={i}>
-										<td>{i}</td>
-										<td>{telemetry[`therm${i}`]} °C</td>
-										<td>{i + 4}</td>
-										<td>{telemetry[`therm${i + 4}`]} °C</td>
-									</tr>
-								))}
+								<tr key={i}>
+									<td>{i}</td>
+									<td style={{ backgroundColor: thermColor(telemetry[`therm${i}`]) }}>
+										{telemetry[`therm${i}`]} °C
+									</td>
+									<td>{i + 4}</td>
+									<td style={{ backgroundColor: thermColor(telemetry[`therm${i + 4}`]) }}>
+										{telemetry[`therm${i + 4}`]} °C
+									</td>
+								</tr>
+							))}
 							</tbody>
 						</table>
 					</Card>

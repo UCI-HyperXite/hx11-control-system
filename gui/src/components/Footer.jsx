@@ -1,7 +1,7 @@
 import React from "react";
 import { StopOctagon } from "./StopOctagon";
 
-export function Footer({sendSerial, downloadCSV, startSending, podState}) {
+export function Footer({downloadCSV, startSending, podState}) {
 	const isStopped = podState === "STOPSTATE";
 
 	const [hoveredButton, setHoveredButton] = React.useState(null);

@@ -80,7 +80,7 @@ export function Header({ podState }) {
 					minWidth: "34.722vw",
 				}}>
 					POD STATE:
-					<span style={{ 
+					<span style={{
 							color: podStateColors[podState],
 							fontSize: "1.8vw",
 							width: "10vw",

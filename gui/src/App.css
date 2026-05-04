@@ -51,10 +51,7 @@ td {
 .TempTable td:nth-child(2) {
     border-right: 2px solid black;
 }
-.TempTable td:nth-child(2),
-.TempTable td:nth-child(4) {
-    background-color: #f0f0f0;
-}
+
 
 .TempTable th {
     border-bottom: 4px double black;
