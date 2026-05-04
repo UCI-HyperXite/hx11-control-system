@@ -88,14 +88,32 @@ void lidar_config(int configur)
 
 int retrieve_lidar_distance()
 {
-	HAL_StatusTypeDef status;
-	uint8_t data[2]={10};
+	uint8_t status = 1;
+    uint8_t data[2];
 
-	lidar_cmd=0x04;
-    HAL_I2C_Mem_Write(LIDAR_I2C_Handler,LIDAR_ADD ,0x00,1,&lidar_cmd,1,100);
-    lidar_cmd=0x8f;
-    HAL_I2C_Master_Transmit(LIDAR_I2C_Handler,LIDAR_ADD,&lidar_cmd,1,100);
-    HAL_I2C_Master_Receive(LIDAR_I2C_Handler,LIDAR_ADD,data,2,100);
-    m_distance = (data[0]<<8)|(data[1]);
-    return m_distance;
+    uint8_t trigger = 0x04;
+    if(HAL_I2C_Mem_Write(LIDAR_I2C_Handler, LIDAR_ADD, 0x00, 1, &trigger, 1, 100) != HAL_OK)
+    	return -1;
+
+    int timeout = 0;
+	while (status & 0x01) {
+		HAL_I2C_Mem_Read(LIDAR_I2C_Handler, LIDAR_ADD, 0x01, 1, &status, 1, 100);
+		if (++timeout > 50)
+			return -2;
+		osDelay(1);
+	}
+
+    uint8_t reg = 0x8f;
+    if(HAL_I2C_Master_Transmit(LIDAR_I2C_Handler, LIDAR_ADD, &reg, 1, 100) != HAL_OK) return -1;
+    if(HAL_I2C_Master_Receive(LIDAR_I2C_Handler, LIDAR_ADD, data, 2, 100) != HAL_OK) return -1;
+
+    return (int)((data[0] << 8) | data[1]);
+}
+
+int check_lidar_health() {
+    uint8_t status;
+    if (HAL_I2C_Mem_Read(LIDAR_I2C_Handler, LIDAR_ADD, 0x01, 1, &status, 1, 100) != HAL_OK) {
+        return -1;
+    }
+    return (int)status;
 }
