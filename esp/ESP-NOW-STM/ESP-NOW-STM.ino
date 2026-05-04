@@ -34,6 +34,9 @@ typedef struct __attribute__((packed)) SensorData {
 	float pt_up, pt_down;
 	float lv_batt;
   float hv_batt_temp, hv_batt;
+  float batt_soc;
+  float lim_volt, lim_curr;
+  float imd;             
   uint8_t pod_state;
 	char message[100];
 } SensorData;
@@ -113,13 +116,11 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 }
 
 bool readPacket() {
-  if (Serial2.available() == 0) return false;
-
-  if (Serial2.peek() != START_BYTE) {
+  while (Serial2.available() > 0 && Serial2.peek() != START_BYTE) {
     Serial2.read();
-    return false;
   }
 
+  if (Serial2.available() == 0) return false;
   if (Serial2.available() < sizeof(SensorData)) return false;
 
   Serial2.readBytes((uint8_t*)&telemetryData, sizeof(SensorData));
@@ -199,34 +200,35 @@ void loop() {
       // TODO: count number of fails before sending -1 to STM and restarting ESP
       Serial.println("Send queue failed");
     }
+  } else {
+    Serial.println("No serial data available.");
   }
 
   if ((millis()-lastHeartbeatSTM) > timeoutMs) {
     // TODO: What to do when STM doesn't send anything
     // Cases: GUI not connected  || STM frozen || Telemetry task blocked
-    if (stmTimedOut) return;
+    if (!stmTimedOut) {
+      stmTimedOut = true;
+      Serial.println("STM32 TIMEOUT");
 
-    if (command == GUICommand::NONE) return;
-
-    stmTimedOut = true;
-    Serial.println("STM32 TIMEOUT");
-    SensorData eStopPacket = {};
-    strcpy(eStopPacket.message, "ESTOP");
-    eStopPacket.start_marker = START_BYTE;
-
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&eStopPacket, sizeof(SensorData));
-
+      if (command != GUICommand::NONE) {
+        SensorData eStopPacket = {};
+        strcpy(eStopPacket.message, "ESTOP");
+        eStopPacket.start_marker = START_BYTE;
+        esp_now_send(broadcastAddress, (uint8_t *)&eStopPacket, sizeof(SensorData));
+      }
+    }
   } else {
     stmTimedOut = false;
   }
 
   if ((millis()-lastHeartbeatESP) > timeoutMs) {
-    if (espTimedOut) return;
-
-    espTimedOut = true;
-    Serial.println("ESP-NOW TIMEOUT");
-    command = GUICommand::NONE;
-    Serial2.write((uint8_t)command);
+    if (!espTimedOut) {
+      espTimedOut = true;
+      Serial.println("ESP-NOW TIMEOUT");
+      command = GUICommand::NONE;
+      Serial2.write((uint8_t)command);
+    }
   } else { 
     espTimedOut = false;
   }

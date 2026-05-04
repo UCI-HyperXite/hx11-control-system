@@ -34,6 +34,9 @@ typedef struct __attribute__((packed)) SensorData {
 	float pt_up, pt_down;
 	float lv_batt;
   float hv_batt_temp, hv_batt;
+    float batt_soc;
+  float lim_volt, lim_curr;
+  float imd;             
   uint8_t pod_state;
 	char message[100];
 } SensorData;
