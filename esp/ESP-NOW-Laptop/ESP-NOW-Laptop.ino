@@ -23,7 +23,8 @@ enum class GUICommand:uint8_t {
   INIT,
   LOAD,
   START,
-  STOP
+  STOP,
+  FAULT
 };
 
 typedef struct __attribute__((packed)) SensorData {
@@ -34,7 +35,7 @@ typedef struct __attribute__((packed)) SensorData {
 	float pt_up, pt_down;
 	float lv_batt;
   float hv_batt_temp, hv_batt;
-    float batt_soc;
+  float batt_soc;
   float lim_volt, lim_curr;
   float imd;             
   uint8_t pod_state;
@@ -98,7 +99,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   lastHeartbeatESP = millis();
 
   if (strcmp(telemetryData.message, "ESTOP") == 0) {
-    Serial.println("ESTOP");
+    Serial.println("{\"msg\":\"ESTOP1\"}");
     sentESTOP = true;
     return;
   }
@@ -262,7 +263,7 @@ void loop() {
   }
 
   if (sentESTOP != true && (millis()-lastHeartbeatESP) > timeoutMs) {
-    Serial.println("ESTOP");
+    Serial.println("{\"msg\":\"ESTOP2\"}");
     sentESTOP = true;
     return;
   }

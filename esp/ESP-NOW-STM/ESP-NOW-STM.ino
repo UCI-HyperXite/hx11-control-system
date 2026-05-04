@@ -23,7 +23,8 @@ enum class GUICommand:uint8_t {
   INIT,
   LOAD,
   START,
-  STOP
+  STOP,
+  FAULT
 };
 
 typedef struct __attribute__((packed)) SensorData {
@@ -97,7 +98,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   espTimedOut = false;
   uint8_t receivedByte = *incomingData;
 
-  if (receivedByte > static_cast<uint8_t>(GUICommand::STOP)) {
+  if (receivedByte > static_cast<uint8_t>(GUICommand::FAULT)) {
     Serial.println("Invalid command value");
     return;
   }
