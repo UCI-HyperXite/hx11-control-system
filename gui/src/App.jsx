@@ -65,6 +65,8 @@ export default function App() {
 	const heartbeatRef = React.useRef(null);
 	const currentCmdRef = React.useRef(null);
 	const connectedAtRef = React.useRef(null);
+	const userOverrideRef = React.useRef(false);
+
 	const timerIntervalRef = React.useRef(null);
 
 	const [showEStop, setShowEStop] = React.useState(false);
@@ -78,8 +80,7 @@ export default function App() {
 		const rows = csvRowsRef.current;
 		// if (rows.length === 0) return;
 
-		const header = ["time", "therm1", "therm2", "therm3", "therm4", "therm5", "therm6", 
-			"therm7", "therm8", "roll", "pitch"];
+		const header = ["time", "therm1", "therm2", "therm3", "therm4", "therm5", "therm6", "therm7", "therm8", "roll", "pitch"];
 		const csvContent = [
 			header.join(","),
 			...rows.map(r => header.map(k => r[k]).join(","))
@@ -94,8 +95,9 @@ export default function App() {
 		URL.revokeObjectURL(url);
 	}
 
-	function startSending(cmd, label) {
+	function startSending(cmd, label, fromUser = false) {
 		if (currentCmdRef.current === cmd) return;
+		if (fromUser) userOverrideRef.current = true;
 		currentCmdRef.current = cmd;
 		clearInterval(heartbeatRef.current);
 		addLog(`Sending: ${label}`); 
@@ -201,7 +203,7 @@ export default function App() {
 							therm8: data.therms?.[7]?.toFixed(2) ?? prev.therm8,
 						}));
 						
-						if (data.msg === "ESTOP") { 
+						if (data.msg === "ESTOP1" || data.msg === "ESTOP2") { 
     						setShowEStop(true);
 						}
 
@@ -223,7 +225,9 @@ export default function App() {
 							const activeState = podStateMap[data.pod_state];
 							if (activeState) {
 								setPodState(activeState);
-								//startSending(String(data.pod_state), activeState.replace("STATE", ""));
+								if (activeState === "FAULTSTATE" && !userOverrideRef.current) {
+									startSending("6", "FAULT");
+								}
 							}
 						}
 					} catch (e) {
@@ -301,7 +305,7 @@ export default function App() {
 				gap: "1.25vw", alignItems: "center", width: "100%"}}>
 					<TopRow telemetry={telemetry} consoleLogs={consoleLogs} />
 				</div>
-				<Footer startSending={startSending} downloadCSV={downloadCSV} podState={podState}/>
+				<Footer startSending={startSending} downloadCSV={downloadCSV} podState={podState} userOverrideRef={userOverrideRef}/>
 				</div>
 	);
 }

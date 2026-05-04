@@ -73,8 +73,8 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 							const cx = 50, cy = 50, r = 40;
 							const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
-							const xNorm = clamp(parseFloat(telemetry.roll), -2, 2) / 2; // roll:  -1 to 1
-							const yNorm = clamp(parseFloat(telemetry.pitch), -2, 2) / 2;  // pitch: -1 to 1
+							const xNorm = clamp(parseFloat(telemetry.pitch), -100, 100) / 100; // roll:  -1 to 1
+							const yNorm = clamp(parseFloat(telemetry.roll), -100, 100) / 100;  // pitch: -1 to 1
 
 							const rollAngle = xNorm * (Math.PI / 2);  // ±90° tilt of major axis
 							const ry = r * Math.abs(yNorm);            // minor axis: 0=flat line, r=full circle

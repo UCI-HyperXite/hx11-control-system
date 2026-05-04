@@ -91,11 +91,11 @@ export function EStopModal({ onClose }) {
                     }}>✕</button>
 
                     <div style={{ fontSize: "4vw", fontWeight: 900, color: "#ff3030", letterSpacing: "0.2vw" }}>
-                        ⛔ E-STOP
+                        ⛔ E-STOP !!!
                     </div>
 
                     <div style={{ fontSize: "3vw", color: "#ffaaaa", fontWeight: "bold" }}>
-                        Run to the pod!!
+                        Go chase the pod!!!!!
                     </div>
                 </div>
             </div>

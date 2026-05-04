@@ -1,7 +1,7 @@
 import React from "react";
 import { StopOctagon } from "./StopOctagon";
 
-export function Footer({downloadCSV, startSending, podState}) {
+export function Footer({downloadCSV, startSending, podState, userOverrideRef}) {
 	const isStopped = podState === "STOPSTATE";
 
 	const [hoveredButton, setHoveredButton] = React.useState(null);
@@ -46,20 +46,20 @@ export function Footer({downloadCSV, startSending, podState}) {
 						}}
 						onMouseEnter={() => !isStopped && setHoveredButton("init")} 
 						onMouseLeave={() => setHoveredButton(null)}
-						onClick={() => !isStopped && startSending("2", "INIT")} 
-						disabled={isStopped}>
+						onClick={() => { if (!isStopped) { userOverrideRef.current = false; startSending("2", "INIT", true); }}}
+    					disabled={isStopped}>
 						Init
 					</button>
 					<button style={btnStyle("load", "#76BBEF")}
 						onMouseEnter={() => setHoveredButton("load")}
 						onMouseLeave={() => setHoveredButton(null)}
-						onClick={() => startSending("3", "LOAD")}>
+						onClick={() => { userOverrideRef.current = false; startSending("3", "LOAD", true); }}>
 						Load
 					</button>
 					<button style={{ ...btnStyle("run", "#1E6A28"), display: "flex", gap: "1.597vw", alignItems: "center" }}
 						onMouseEnter={() => setHoveredButton("run")}
 						onMouseLeave={() => setHoveredButton(null)}
-						onClick={() => startSending("4", "START")}>
+						onClick={() => { userOverrideRef.current = false; startSending("4", "START", true); }}>
 						<div style={{
 							borderLeft: "0.694vw solid #ffffff",
 							borderTop: "0.486vw solid transparent",
@@ -71,7 +71,7 @@ export function Footer({downloadCSV, startSending, podState}) {
 				</div>
 
 				<div style={{ marginLeft: "5.556vw", display: "flex", alignItems: "center" }}>
-					<StopOctagon onClick={() => startSending("5", "STOP")}/>
+					<StopOctagon onClick={() => { userOverrideRef.current = false; startSending("5", "STOP", true); }}/>
 				</div>
 
 				<button
