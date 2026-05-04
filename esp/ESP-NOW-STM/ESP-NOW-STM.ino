@@ -120,8 +120,14 @@ bool readPacket() {
     Serial2.read();
   }
 
-  if (Serial2.available() == 0) return false;
-  if (Serial2.available() < sizeof(SensorData)) return false;
+  if (Serial2.available() == 0) {
+    // Serial.println("No serial data available");
+    return false;
+  }
+  if (Serial2.available() < sizeof(SensorData)) {
+    // Serial.println("Not enough serial data available");
+    return false;
+  }
 
   Serial2.readBytes((uint8_t*)&telemetryData, sizeof(SensorData));
 
@@ -186,10 +192,10 @@ void loop() {
   /* ESP32 - STM32 */
   // TODO: esp_task_wdt_reset();
 
-  if (millis() - lastLoop < 50) {
-    return;
-  }
-  lastLoop = millis();
+  // if (millis() - lastLoop < 50) {
+  //   return;
+  // }
+  // lastLoop = millis();
 
   if (readPacket()) {
     lastHeartbeatSTM = millis();
@@ -199,9 +205,9 @@ void loop() {
     if (result != ESP_OK) {
       // TODO: count number of fails before sending -1 to STM and restarting ESP
       Serial.println("Send queue failed");
+    } else {
+      Serial.println("Sent!!!");
     }
-  } else {
-    Serial.println("No serial data available.");
   }
 
   if ((millis()-lastHeartbeatSTM) > timeoutMs) {
