@@ -938,15 +938,15 @@ void StartTelemetryTask(void *argument)
 {
   /* USER CODE BEGIN StartTelemetryTask */
   /* Infinite loop */
-	char uart_tx_buff[100];
+//	char uart_tx_buff[100];
 //	printf("Telemetry Waiting\r\n");
 	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 
 	for(;;)
 	{
 		osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
-		sprintf(uart_tx_buff, "Telemetry Sending NOW\r\n");
-		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
+//		sprintf(uart_tx_buff, "Telemetry Sending NOW\r\n");
+//		HAL_UART_Transmit(&hcom_uart[COM1], (uint8_t*)uart_tx_buff, strlen(uart_tx_buff), 100);
 
 		osMutexAcquire(sensorMutex, osWaitForever);
 		sensorData.start_marker = 0xAA;
@@ -1090,17 +1090,16 @@ void StartFSMTask(void *argument)
 		// GUI IS ALIVE
 
 		// CHECK FOR FAULT CONDITIONS
-
 		flags = osEventFlagsGet(sensorInitFlag);
-
 		if (flags & SENSOR_INIT_DONE) {
 			// If sensors are initialized, check fault conditions
-		    bool fault_found = fault_conditions(&sensorData);
-
-		    if (fault_found && fsm.currentState != FAULT) {
-		        fsm.currentState = FAULT;
-		        fsm.stateEntry = 1;
-		    }
+			if (fsm.currentState != FAULT) {
+				bool fault_found = fault_conditions(&sensorData);
+				if (fault_found) {
+					fsm.currentState = FAULT;
+					fsm.stateEntry = 1;
+				}
+			}
 		}
 
 		// CHANGE STATES ON ENTRY
