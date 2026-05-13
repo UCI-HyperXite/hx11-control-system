@@ -30,7 +30,7 @@ export function Footer({downloadCSV, startSending, podState, userOverrideRef}) {
 	const btnStyle = (name, color, enabled = true) => ({
 		background: hoveredButton === name ? darkenColor(color) : color,
 		border: "none",
-		marginLeft: "11.167vw",
+		marginLeft: "9vw",
 		padding: "0.833vw 2.5vw",
 		borderRadius: "1.528vw",
 		fontWeight: 700,
@@ -48,7 +48,7 @@ export function Footer({downloadCSV, startSending, podState, userOverrideRef}) {
 			<div style={{
 				display: "flex", 
 				padding: "0.347vw 1.389vw",
-				gap: "3.472vw", 
+				gap: "3.4vw", 
 				background: "#260e2f", 
 				alignItems: "center",
 			}}>
@@ -85,10 +85,12 @@ export function Footer({downloadCSV, startSending, podState, userOverrideRef}) {
 					</button>
 				</div>
 
-				<StopOctagon
-					disabled={!canStop}
-					onClick={() => { userOverrideRef.current = false; startSending("5", "STOP", true); }}
-				/>
+				<div style={{ marginLeft: "4vw" }}>
+					<StopOctagon
+						disabled={!canStop}
+						onClick={() => { userOverrideRef.current = false; startSending("5", "STOP", true); }}
+					/>
+				</div>
 
 				<button
 					onMouseEnter={() => setHoveredButton("csv")}
@@ -102,7 +104,7 @@ export function Footer({downloadCSV, startSending, podState, userOverrideRef}) {
 						cursor: "pointer",
 						fontWeight: "bold",
 						fontSize: "1vw",
-						marginLeft: "1vw",
+						marginLeft: "4vw",
 						height: "3.5vw",
 						width: "11vw",
 						transition: "background-color 0.2s ease",

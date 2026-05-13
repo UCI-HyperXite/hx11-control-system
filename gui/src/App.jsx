@@ -5,14 +5,7 @@ import { TopRow } from "./components/TopRow";
 import { Footer } from "./components/Footer";
 import { EStopModal } from "./components/EStopModal";
 
-// TODO: for each state, turn off the buttons for states it can't go to
-	//GUI_OK -> only INIT
-	//INIT -> LOAD/FAULT
-	//LOAD -> PRECHARGE/STOP/FAULT
-	//PRECHARGE -> START/STOP/FAULT
-	//START -> STOP/FAULT
-	//STOP -> LOAD
-	//FAULT -> INIT/LOAD
+// TODO: 
 // disallow START until a msg that says voltage/current stabalized
 
 // TEST: should gui_ok if connected to another device than esp32??
@@ -315,7 +308,7 @@ export default function App() {
 				)}
 
 				{showEStop && <EStopModal onClose={() => setShowEStop(false)} />} {}
-
+{/* 
 				<div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
 					{Object.entries(podStateMap).map(([num, name]) => (
 						<button
@@ -336,7 +329,7 @@ export default function App() {
 							Simulate {num}: {name}
 						</button>
 					))}
-				</div>
+				</div> */}
 
 				<Header podState={podState}/>
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",
