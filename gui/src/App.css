@@ -21,7 +21,7 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; backg
     border-bottom: 2px solid #eadfd6;
 }
 .OtherInfoTable td{
-    border-top: 2px solid #eadfd6;
+    border-top: 1.5px solid #eadfd6;
 }
 
 .OtherInfoTable td:nth-child(1){

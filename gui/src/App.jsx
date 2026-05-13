@@ -6,7 +6,18 @@ import { Footer } from "./components/Footer";
 import { EStopModal } from "./components/EStopModal";
 
 // TODO: for each state, turn off the buttons for states it can't go to
-// TODO: change on esp: make ESTOP send in a JSON format
+	//GUI_OK -> only INIT
+	//INIT -> LOAD/FAULT
+	//LOAD -> PRECHARGE/STOP/FAULT
+	//PRECHARGE -> START/STOP/FAULT
+	//START -> STOP/FAULT
+	//STOP -> LOAD
+	//FAULT -> INIT/LOAD
+// disallow START until a msg that says voltage/current stabalized
+
+// TEST: should gui_ok if connected to another device than esp32??
+	// if connected to pod, does GUI_OK? 
+// TODO: if ESTOP, state should be FAULT
 
 
 const podStateMap = {
@@ -17,7 +28,6 @@ const podStateMap = {
 	5: "STARTSTATE",
 	6: "STOPSTATE",
 	7: "FAULTSTATE",
-	8: "HALTSTATE",
 };
 
 export default function App() {
@@ -31,7 +41,33 @@ export default function App() {
 	roll: "0.00",
     pitch: "0.00",
 
-    limVoltage: "0.00",
+	//VFD
+	drivingDirection: "N/A",
+	encoderSpeed: "0.00", // m/s
+	errorCode: "N/A",	  // tbd
+	batteryVoltage: "0.00", //V
+	motorCurrent: "0.00",   //A
+	motorTemp: "0.00",		// C or F
+	controllerTemp: "0.00", // C or F
+
+	//BMS
+	lowestCellVoltage: "0.00",	// V
+	highestCellVoltage: "0.00", // V
+	packSOC: "0.00",			
+	highestTemp: "0.00",		// signed C?
+	bmsTestCounter: "0.00",
+	relayStatus: "0.00",
+	packVoltage: "0.00",
+	lowestTemp: "0.00",
+	dischargeEnableStatus: "0.00",
+
+	//IMD
+	insulationResistance: "0.00",
+	iso_status: "0.00",
+	imd_counter: "0.00",
+	imd_warnings: "0.00",
+
+	
     limCurrent: "0.00",
     battVoltage: "0.00",
 	lvbattVoltage: "0.00",
@@ -40,21 +76,22 @@ export default function App() {
     battTemp: "0.00",
     imdStatus: "Insulated",
 	
-    current1: "0",
-    current2: "0",
+	//Pressure
+    pressure1: "0",
+    pressure2: "0",
 
-    therm1: "0.00",
+    therm1: "00.00",
     therm2: "0.00", 
     therm3: "0.00",
     therm4: "0.00",
-    therm5: "0.00",
+    therm5: "00.00",
     therm6: "0.00",
     therm7: "0.00",
     therm8: "0.00",
 	});
 
 	// State for POD STATE dot colors from API
-	const [podState, setPodState] = React.useState("OFF");
+	const [podState, setPodState] = React.useState("IDLE");
 	
 	const [isConnected, setIsConnected] = React.useState(false);
 	const [consoleLogs, setConsoleLogs] = React.useState([]);
@@ -100,7 +137,7 @@ export default function App() {
 		if (fromUser) userOverrideRef.current = true;
 		currentCmdRef.current = cmd;
 		clearInterval(heartbeatRef.current);
-		addLog(`Sending: ${label}`); 
+		addLog(`Sending: ${cmd} ${label}`); 
 
 		const sendCmd = async () => {
 			if (!portRef.current) return;
@@ -139,7 +176,6 @@ export default function App() {
 			}, 1000);
 
 			startSending("1", "OK");
-			setPodState("GUI_OK");
 
       		addLog("Serial connected ✓");
 
@@ -159,7 +195,7 @@ export default function App() {
 					connectedAtRef.current = null;
 					currentCmdRef.current = null;
 					portRef.current = null;
-					setPodState("OFF");
+					setPodState("IDLE");
 					break;
 				}
 
@@ -179,7 +215,10 @@ export default function App() {
 							
 							roll: data.roll ?? prev.roll,
 							pitch: data.pitch ?? prev.pitch,
-							limVoltage: data.lim_volt ?? prev.limVoltage,
+
+							lowestCellVoltage: data.low_cell ?? prev.lowestCellVoltage,
+							highestCellVoltage: data.high_cell ?? prev.highestCellVoltage,
+
 							limCurrent: data.lim_curr ?? prev.limCurrent,
 							battVoltage: data.hv_batt ?? prev.battVoltage,
 							lvbattVoltage: data.lv_batt ?? prev.lvbattVoltage, //ina260
@@ -188,8 +227,8 @@ export default function App() {
 							battTemp: data.hv_batt_temp ?? prev.battTemp,
 							imdStatus: data.imd ?? prev.imdStatus,
 							
-							current1: data.pt_up ?? prev.current1,
-							current2: data.pt_down ?? prev.current2,
+							pressure1: data.pt_up ?? prev.pressure1,
+							pressure2: data.pt_down ?? prev.pressure2,
 							
 							// {"lidar":0,"pod_state":1,"roll":0.00,"pitch":0.00,"therms":[20.43,33.09,41.80,59.81,65.01,70.80,83.82,80.72],"pt_up":0.00,"pt_down":0.00,"lv_batt":0.00,"hv_batt_temp":0.00,"hv_batt":0.00,"msg":"Whatever message"}
 							
@@ -277,7 +316,7 @@ export default function App() {
 
 				{showEStop && <EStopModal onClose={() => setShowEStop(false)} />} {}
 
-				{/* <div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
+				<div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
 					{Object.entries(podStateMap).map(([num, name]) => (
 						<button
 							key={num}
@@ -297,7 +336,7 @@ export default function App() {
 							Simulate {num}: {name}
 						</button>
 					))}
-				</div> */}
+				</div>
 
 				<Header podState={podState}/>
 				<div style={{flex: 1, minHeight: 0, overflowY: "auto",

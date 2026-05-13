@@ -4,27 +4,24 @@ import HX_logo from "../assets/HX_logo.jpg";
 
 
 const podStateColors = {
-	OFF: 			"#888888",
-	GUI_OK:			"#888888",
+	GUI_OKSTATE:	"#888888",
 	INITSTATE:      "#FC95AD",
 	LOADSTATE:      "#3DADFF",
 	PRECHARGESTATE: "#FFCD29",
 	STARTSTATE:     "#359D43",
 	STOPSTATE:      "#F24822",
 	FAULTSTATE:     "#1E1E1E",
-	HALTSTATE:      "#FFA629",
 };
 
 const POD_STATES = [
-	"OFF",
-	"GUI_OK",
+	"IDLE",
+	"GUI_OKSTATE",
 	"INITSTATE",
 	"LOADSTATE",
 	"PRECHARGESTATE",
 	"STARTSTATE",
 	"STOPSTATE",
 	"FAULTSTATE",
-	"HALTSTATE",
 ];
 
 export function Header({ podState }) {
@@ -96,7 +93,7 @@ export function Header({ podState }) {
 							alignItems: "center",
 						}}
 					>
-						{POD_STATES.filter(state => state !== "OFF" && state !== "GUI_OK").map(state => {
+						{POD_STATES.filter(state => state !== "IDLE").map(state => {
 							const isActive = state === podState;
 							return (
 								<Dot

@@ -7,27 +7,28 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 
 	function thermColor(temp) {
 		const t = parseFloat(temp);
-		if (t >= 70) return "#ff6868";
+		if (t >= 75) return "#eb68ff";
+		if (t >= 68) return "#ff6868";
 		if (t >= 60) return "#ff8972";  
 		if (t >= 50) return "#fcae7a";
 		if (t >= 40) return "#fff5b9";
 		if (t >= 30) return "#ffffd7";
 		if (t >= 15) return "#f0f0f0";
-		return "#bdf1ff";                
+		return "#bdf1ff";              
 	}
 	return (
 		<div style={{ 
-			display: "flex", 
-			gap: "1.25vw", 
+			display: "flex",
+			gap: "1.25vw",
 			alignItems: "flex-start",
 			width: "100%",
 			}}>
 
 			{/* LEFT COLUMN */}
-			<div style={{ 
-				display: "flex", 
-				flexDirection: "column", 
-				gap: "1.5vw", 
+			<div style={{
+				display: "flex",
+				flexDirection: "column",
+				gap: "1.5vw",
 				flexShrink: 0 }}>
 
 				{/* Top two cards */}
@@ -49,7 +50,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 
 					<Card title="Rotation" 
 						style={{ 
-							width: "17.5vw", 
+							width: "16.5vw", 
 							flexShrink: 0,
 							paddingBottom: "0.5vw"
 						}}>
@@ -159,15 +160,15 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 						<div style={{ marginTop: "-1.5vw" }}>
 							<table style={{ fontSize: "1.2vw", fontWeight: "bold", width: "100%", marginTop: "1vw"}} className="INA219Table">
 								<thead>
-									<tr style={{fontSize: "1vw"}}>
+									<tr style={{fontSize: "1.2vw"}}>
 										<th style={{ width: "55%" }}>INA219</th>
 										<th style={{ width: "45%" }}>Value</th>
 									</tr>
 								</thead>
 								<tbody>
 									{[
-										["up:", `${telemetry.current1} PSI`],
-										["down:", `${telemetry.current2} PSI`],
+										["up:", `${telemetry.pressure1} PSI`],
+										["down:", `${telemetry.pressure2} PSI`],
 									].map(([label, value]) => (
 										<tr key={label}><td>{label}</td><td>{value}</td></tr>
 									))}
@@ -187,14 +188,14 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 						</div>
 					</Card>
 
-					<Card title="LIM Temperature" style={{ width: "17vw", flexShrink: 0}}>
-						<table style={{ width: "100%" }} className="TempTable">
+					<Card title="LIM Temperature" style={{ width: "17.5vw", flexShrink: 0}}>
+						<table style={{ width: "100%", marginTop: "0.8vw", marginBottom: "1.2vw",}} className="TempTable">
 							<thead>
-								<tr style = {{fontSize: "1vw"}}>
-									<th style={{ width: "14%" }}>Th#</th>
-									<th style={{ width: "36%" }}>Temp</th>
-									<th style={{ width: "14%" }}>Th#</th>
-									<th style={{ width: "36%" }}>Temp</th>
+								<tr style = {{fontSize: "1.2vw"}}>
+									<th style={{ width: "13%" }}>Th#</th>
+									<th style={{ width: "37%" }}>Temp</th>
+									<th style={{ width: "13%" }}>Th#</th>
+									<th style={{ width: "37%" }}>Temp</th>
 								</tr>
 							</thead>
 							<tbody style = {{fontSize: "1.1vw"}}>
@@ -222,28 +223,28 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 				<div style={{
 					background: "#2f2740", 
 					color: "#f0e6f2", 
-					borderRadius: "0.833vw",
-					padding: "0 1vw", 
+					borderRadius: "0.7vw",
+					padding: "0 0.5vw", 
 					fontWeight: "bold", 
-					fontSize: "0.88vw", 
-					lineHeight: "2.95vw",
+					fontSize: "0.9vw",
 					
 				}}>
 					<div className="OtherInfoTable">
-						<table style={{ width: "100%", }}>
+						<table style={{ width: "100%", lineHeight: "1.3vw"}}>
 							<thead>
 								<tr>
-									<th style={{ width: "40%" }}></th>
-									<th style={{ width: "15%" }}>Min</th>
-									<th style={{ width: "15%" }}>Value</th>
-									<th style={{ width: "15%" }}>Max</th>
-									<th style={{ width: "15%" }}>Unit</th>
+									<th style={{ width: "35%" }}></th>
+									<th style={{ width: "19%" }}>Min</th>
+									<th style={{ width: "19%" }}>Value</th>
+									<th style={{ width: "19%" }}>Max</th>
+									<th style={{ width: "8%" }}>Unit</th>
 								</tr>
 							</thead>
 							<tbody>
 								{[
 									
-									["HV Batt Volt (avg):", telemetry.battVoltage, "V"],
+									["HV Low Cell Volt:", telemetry.lowCellVoltage, "V"],
+									["HV High Cell Volt:", telemetry.highCellVoltage, "V"],
 									["HV Batt Current:", telemetry.battCurrent, "A"],
 									["HV Batt SoC:", telemetry.battSoC, "%"],
 									["LIM Voltage:", telemetry.limVoltage, "V"],
