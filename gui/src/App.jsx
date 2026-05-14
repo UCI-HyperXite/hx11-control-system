@@ -120,7 +120,7 @@ export default function App() {
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `therms_${Date.now()}.csv`;
+		a.download = `PodRun_${new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).replace(/[/,: ]/g, "")}.csv`;
 		a.click();
 		URL.revokeObjectURL(url);
 	}
@@ -169,6 +169,7 @@ export default function App() {
 			}, 1000);
 
 			startSending("1", "OK");
+			setPodState("GUI_OKSTATE");
 
       		addLog("Serial connected ✓");
 
@@ -240,7 +241,7 @@ export default function App() {
 						}
 
 						csvRowsRef.current.push({
-							time: new Date().toISOString(),
+							time: new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
 							therm1: data.therms?.[0]?.toFixed(2) ?? "",
 							therm2: data.therms?.[1]?.toFixed(2) ?? "",
 							therm3: data.therms?.[2]?.toFixed(2) ?? "",
@@ -308,8 +309,8 @@ export default function App() {
 				)}
 
 				{showEStop && <EStopModal onClose={() => setShowEStop(false)} />} {}
-{/* 
-				<div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
+
+				{/* <div style={{ position: "fixed", top: 500, right: 10, zIndex: 999, display: "flex", flexDirection: "column", gap: 4 }}>
 					{Object.entries(podStateMap).map(([num, name]) => (
 						<button
 							key={num}
