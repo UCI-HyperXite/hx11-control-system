@@ -9,12 +9,6 @@
 
 #include "main.h"
 #include "ina219.h"
-//enum BatteryState batteryState;
-
-//bool isFirst;
-//uint16_t ina219_calibrationValue;
-//int16_t ina219_currentDivider_mA;
-//int16_t ina219_powerMultiplier_mW;
 
 /*
  * @brief:		Read a register from the IN219 sensor.
@@ -85,13 +79,31 @@ int16_t INA219_ReadCurrent_raw(INA219_t *ina219)
  * @param:		Pointer to the device object that was made from the struct. EX:  (&ina219)
  * @return: 	The current reading convereted to milliamps
  */
-int16_t INA219_ReadCurrent(INA219_t *ina219)
+float INA219_ReadCurrent(INA219_t *ina219)
 {
 	int16_t result = INA219_ReadCurrent_raw(ina219);
 
-	return (result / ina219->currentDivider_mA );
+	return (float)(result / ina219->currentDivider_mA);
 }
 
+/*
+ *@brief:		Convert 4-20mA current signal to PSI. 4ma = 0, 20mA = full scale
+ *@param:		current_mA - current in mA
+ *@param:		fullScale_PSI - max PSI of pressure transducer. Different ranges for
+ *				upstream and downstream PTs given by Braking subteam.
+ *@return:		Pressure in PSI as a float. Return -1 if below 0 PSI (sensor fault)
+ */
+float INA219_ConvToPSI(float current_mA, float fullScalePSI)
+{
+	const float I_MIN = 4.0f;
+	const float I_MAX = 20.0f;
+	const float I_SPAN = I_MAX - I_MIN;
+
+	float psi = ((current_mA - I_MIN) / I_SPAN) * fullScalePSI;
+	if (psi < 0.0f) psi = -1.0f;
+
+	return psi;
+}
 /*
  * @brief: 		This function will read the shunt voltage level.
  * @param:		Pointer to the device object that was made from the struct. EX:  (&ina219)

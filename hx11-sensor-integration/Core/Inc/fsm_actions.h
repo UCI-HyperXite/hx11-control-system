@@ -44,14 +44,14 @@ extern osEventFlagsId_t   sensorInitFlag;
 extern osEventFlagsId_t   adcFlag;
 extern osEventFlagsId_t   GUIConnectionFlag;
 
-extern INA219_t ina219_left;
-extern INA219_t ina219_right;
+extern INA219_t ina219_upstream;
+extern INA219_t ina219_downstream;
 extern uint32_t object_distance;
 
 extern uint8_t lidar_ok;
 extern uint8_t mpu_ok;
-extern uint8_t ina_left_ok;
-extern uint8_t ina_right_ok;
+extern uint8_t ina_up_ok;
+extern uint8_t ina_down_ok;
 
 extern uint16_t rawValues[THERMISTOR_COUNT];
 extern float thermistorValues[THERMISTOR_COUNT];

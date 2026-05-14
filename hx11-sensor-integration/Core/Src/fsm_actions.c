@@ -5,6 +5,7 @@
 
 #include "fsm_actions.h"
 
+
 void init_sensors(void) {
 	// Initialize DMA for thermistors
 	if (HAL_ADC_GetState(&hadc1) != HAL_ADC_STATE_RESET) {
@@ -37,7 +38,7 @@ void init_sensors(void) {
     	printf("LIDAR Found\r\n");
     }
 
-    // Initialize LIDAR
+//    Initialize LIDAR
     osMutexAcquire(i2cMutex, osWaitForever);
     lidar_init(&hi2c1);
     osMutexRelease(i2cMutex);
@@ -64,21 +65,20 @@ void init_sensors(void) {
 	}
     osMutexRelease(i2cMutex);
 
-
-	//
-  printf("LIDAR initializing...\r\n");
-  lidar_init(&hi2c1);
-  osMutexAcquire(i2cMutex, osWaitForever);
-  lidar_config(4);
-  osMutexRelease(i2cMutex);
-  osMutexAcquire(i2cMutex, osWaitForever);
-  lidar_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0x62 << 1, 2, 50) == HAL_OK) ? 1 : 0;
-  osMutexRelease(i2cMutex);
-  if (lidar_ok) {
-    printf("Finished LIDAR initialization.\r\n");
-  } else {
-    printf("WARNING: LIDAR not responding on I2C bus\r\n");
-  }
+//	Lidar
+//  printf("LIDAR initializing...\r\n");
+//  lidar_init(&hi2c1);
+//  osMutexAcquire(i2cMutex, osWaitForever);
+//  lidar_config(4);
+//  osMutexRelease(i2cMutex);
+//  osMutexAcquire(i2cMutex, osWaitForever);
+//  lidar_ok = (HAL_I2C_IsDeviceReady(&hi2c1, 0x62 << 1, 2, 50) == HAL_OK) ? 1 : 0;
+//  osMutexRelease(i2cMutex);
+//  if (lidar_ok) {
+//    printf("Finished LIDAR initialization.\r\n");
+//  } else {
+//    printf("WARNING: LIDAR not responding on I2C bus\r\n");
+//  }
 
 //   MPU
   printf("MPU initializing...\r\n");
@@ -130,24 +130,24 @@ void init_sensors(void) {
 
 
   printf("INAs initializing...\r\n");
-  ina_left_ok = INA219_Init(&ina219_left, &hi2c1, INA219_ADDRESS);
-  if (!ina_left_ok) {
-    printf("WARNING: INA219 LEFT (0x%02X) init failed\r\n", INA219_ADDRESS);
+  ina_up_ok = INA219_Init(&ina219_upstream, &hi2c1, INA219_ADDRESS_40);
+  if (!ina_up_ok) {
+    printf("WARNING: INA219 upstream (0x%02X) init failed\r\n", INA219_ADDRESS_40);
   }
 
-  ina_right_ok = INA219_Init(&ina219_right, &hi2c1, INA219_ADDRESS1);
-  if (!ina_right_ok) {
-    printf("WARNING: INA219 RIGHT (0x%02X) init failed\r\n", INA219_ADDRESS1);
+  ina_down_ok = INA219_Init(&ina219_downstream, &hi2c1, INA219_ADDRESS_41);
+  if (!ina_down_ok) {
+    printf("WARNING: INA219 DOWNSTREAM (0x%02X) init failed\r\n", INA219_ADDRESS_41);
   }
   printf("Finished INAs initialization.\r\n");
 
 
   printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
-  printf("  LIDAR: %s | MPU: %s | INA_L: %s | INA_R: %s\r\n",
+  printf("  LIDAR: %s | MPU: %s | INA_UP: %s | INA_DOWN: %s\r\n",
     lidar_ok  ? "OK" : "FAIL",
     mpu_ok    ? "OK" : "FAIL",
-    ina_left_ok  ? "OK" : "FAIL",
-    ina_right_ok ? "OK" : "FAIL");
+    ina_up_ok  ? "OK" : "FAIL",
+    ina_down_ok ? "OK" : "FAIL");
 
   osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
 }
