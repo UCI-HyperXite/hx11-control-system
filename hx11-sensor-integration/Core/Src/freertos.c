@@ -66,14 +66,14 @@ osEventFlagsId_t adcFlag;
 
 volatile uint8_t guiCommand = 0;
 
-INA219_t ina219_left;
-INA219_t ina219_right;
+INA219_t ina219_upstream;
+INA219_t ina219_downstream;
 uint32_t object_distance;
 
 uint8_t lidar_ok = 0;
 uint8_t mpu_ok = 0;
-uint8_t ina_left_ok = 0;
-uint8_t ina_right_ok = 0;
+uint8_t ina_up_ok = 0;
+uint8_t ina_down_ok = 0;
 
 volatile uint8_t convCompleted = 0;
 volatile uint8_t firstConversionComplete = 0;
@@ -403,12 +403,12 @@ void StartINATask(void *argument)
 //		  printf("INA Running\r\n");
 		  osMutexAcquire(i2cMutex, osWaitForever);
 		  current_up = 1;
-		  current_up = INA219_ReadCurrent(&ina219_left);  //TODO: UPDATE CURRENT_UP
+		  current_up = INA219_ReadCurrent(&ina219_upstream);  //TODO: UPDATE CURRENT_UP
 		  osMutexRelease(i2cMutex);
 
 		  osMutexAcquire(i2cMutex, osWaitForever);
 		  current_down = 2;
-		  current_down = INA219_ReadCurrent(&ina219_right);  //TODO: UPDATE CURRENT_DOWN
+		  current_down = INA219_ReadCurrent(&ina219_downstream);  //TODO: UPDATE CURRENT_DOWN
 		  osMutexRelease(i2cMutex);
 		  /* END */
 
@@ -565,6 +565,7 @@ void StartFSMTask(void *argument)
 {
   /* USER CODE BEGIN StartFSMTask */
 	// Wait until the first GUI connection is alive
+	printf("In FSM task, waiting for connect");
 	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 
   /* Infinite loop */
