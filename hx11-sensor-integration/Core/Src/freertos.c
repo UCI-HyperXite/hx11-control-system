@@ -178,6 +178,11 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
+	sensorMutex      = osMutexNew(NULL);
+	i2cMutex         = osMutexNew(NULL);
+	GUIConnectionFlag = osEventFlagsNew(NULL);
+	sensorInitFlag   = osEventFlagsNew(NULL);
+	adcFlag          = osEventFlagsNew(NULL);
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -624,7 +629,7 @@ void StartFSMTask(void *argument)
 			case LOAD:
 				// TODO: LOAD -> PRECHARGE
 				// TODO: Brakes
-//				load_actions(&sensorData);
+				load_actions(&sensorData);
 
 				fsm.previousState = fsm.currentState;
 				fsm.currentState = PRECHARGE;
@@ -637,20 +642,25 @@ void StartFSMTask(void *argument)
 				// TODO: Turn on HV
 				// TODO: Wait for V/I to stabilize
 				// TODO: Set Flag
+				precharge_actions(&sensorData);
 				printf(">PRECHARGE\r\n");
 				break;
 			case START:
 				// TODO: Start VFD + LIM
+				start_actions(&sensorData);
 				printf(">START\r\n");
 				break;
 			case STOP:
 				// TODO: Brakes
+				stop_actions(&sensorData);
 				// TODO: Turn off HV
 				printf(">STOP\r\n");
 				break;
 			case FAULT:
 				// TODO: Brakes
 				// TODO: Turn off HV
+
+				fault_actions(&sensorData);
 				printf(">FAULT\r\n");
 
 				break;
