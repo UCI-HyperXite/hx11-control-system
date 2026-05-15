@@ -35,7 +35,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 				<div style={{ display: "flex", gap: "1.25vw" }}>
 					<Card style={{ 
 						height: "12vw", 
-						width: "14vw", 
+						width: "13vw", 
 						flexShrink: 0, 
 						fontWeight: "bold", 
 						fontSize: "1.2vw", 
@@ -50,7 +50,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 
 					<Card title="Rotation" 
 						style={{ 
-							width: "16.5vw", 
+							width: "17.8vw", 
 							flexShrink: 0,
 							paddingBottom: "0.5vw"
 						}}>
@@ -241,13 +241,42 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 								</tr>
 							</thead>
 							<tbody>
-								{[
-									
-									["HV Low Cell Volt:", telemetry.lowCellVoltage, "V"],
-									["HV High Cell Volt:", telemetry.highCellVoltage, "V"],
+								{[	// VFD comment
+									// ["Driving Direction:", telemetry.drivingDirection, ""],
+									// ["Encoder Speed:", telemetry.encoderSpeed, "m/s"],
+									// ["Error Code:", telemetry.errorCode, "" ],
+									// ["Battery Voltage:", telemetry.batteryVoltage, "V" ],
+									// ["Motor Current:", telemetry.batteryVoltage, "V" ],
+									// ["Motor Temp", telemetry.motorTemp, "°C" ],
+									// ["Controller Temp", telemetry.controllerTemp, "°C" ],
+									//VFD
+
+									["HV Low Cell Volt:", telemetry.lowestCellVoltage, "V"],
+									["HV High Cell Volt:", telemetry.highestCellVoltage, "V"],
+
+
+									//BMS comment
+									// ["Pack SOC:", telemetry.packSOC, "%"],
+									// ["Highest Temp:", telemetry.highestTemp, "°C"],
+									// ["BMS Test Counter:", telemetry.bmsTestCounter, ""],
+									// ["Relay Status:", telemetry.relayStatus, ""],
+									// ["Pack Voltage:", telemetry.packVoltage, "V"],
+									// ["Lowest Temp:", telemetry.lowestTemp, "°C"],
+									//BMS
+
+									["BMS Discharge Enable Status:", telemetry.dischargeEnableStatus, ""],
+
+									//IMD Comment
+									// ["Insulation Resistance:", telemetry.insulationResistance, "Ω"],
+									// ["ISO Status:", telemetry.iso_status, ""],
+									// ["IMD Counter:", telemetry.imd_counter, ""],
+									// ["IMD Warnings:", telemetry.imd_warnings, ""],
+									// ["Battery Voltage:", telemetry.battVoltage, "V"],
+									//IMD 
+
 									["HV Batt Current:", telemetry.battCurrent, "A"],
 									["HV Batt SoC:", telemetry.battSoC, "%"],
-									["LIM Voltage:", telemetry.limVoltage, "V"],
+									
 									["LIM Current:", telemetry.limCurrent, "A"],
 									["LV Batt Voltage ", telemetry.lvbattVoltage, "V"],
 									

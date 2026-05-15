@@ -49,14 +49,14 @@ export default function App() {
 	packSOC: "0.00",			
 	highestTemp: "0.00",		// signed C?
 	bmsTestCounter: "0.00",
-	relayStatus: "0.00",
+	relayStatus: "n/a",
 	packVoltage: "0.00",
 	lowestTemp: "0.00",
-	dischargeEnableStatus: "0.00",
+	dischargeEnableStatus: "n/a",
 
 	//IMD
 	insulationResistance: "0.00",
-	iso_status: "0.00",
+	iso_status: "n/a",
 	imd_counter: "0.00",
 	imd_warnings: "0.00",
 
@@ -67,7 +67,7 @@ export default function App() {
     battCurrent: "0.00",
     battSoC: "0.00",
     battTemp: "0.00",
-    imdStatus: "Insulated",
+    imdStatus: "n/a",
 	
 	//Pressure
     pressure1: "0",
@@ -210,8 +210,34 @@ export default function App() {
 							roll: data.roll ?? prev.roll,
 							pitch: data.pitch ?? prev.pitch,
 
+							//VFD
+							drivingDirection: data.drivingDirection ?? prev.drivingDirection,
+							encoderSpeed:  data.encoderSpeed ?? prev.encoderSpeed, // m/s
+							errorCode:  data.errorCode ?? prev.errorCode,	  // tbd
+							batteryVoltage:  data.batteryVoltage ?? prev.batteryVoltage, //V
+							motorCurrent:  data.motorCurrent ?? prev.motorCurrent,   //A
+							motorTemp:  data.motorTemp ?? prev.motorTemp,		// C or F
+							controllerTemp:  data.controllerTemp ?? prev.controllerTemp, // C or F
+
+							//BMS
 							lowestCellVoltage: data.low_cell ?? prev.lowestCellVoltage,
 							highestCellVoltage: data.high_cell ?? prev.highestCellVoltage,
+
+							packSOC: data.packSOC ?? prev.packSOC,			
+							highestTemp: data.highestTemp ?? prev.highestTemp,		// signed C?
+							bmsTestCounter: data.bmsTestCounter ?? prev.bmsTestCounter,
+							relayStatus: data.relayStatus ?? prev.relayStatus,
+							packVoltage: data.packVoltage ?? prev.packVoltage,
+							lowestTemp: data.lowestTemp ?? prev.lowestTemp,
+
+							dischargeEnableStatus: data.dischargeEnableStatus ?? prev.dischargeEnableStatus,
+
+
+							//IMD
+							insulationResistance: data.insulationResistance ?? prev.insulationResistance,
+							iso_status: data.iso_status ?? prev.iso_status,
+							imd_counter: data.imd_counter ?? prev.imd_counter,
+							imd_warnings: data.imd_warnings ?? prev.imd_warnings,
 
 							limCurrent: data.lim_curr ?? prev.limCurrent,
 							battVoltage: data.hv_batt ?? prev.battVoltage,

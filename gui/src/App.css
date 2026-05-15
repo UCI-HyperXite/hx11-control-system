@@ -29,13 +29,11 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; backg
   padding-left: 20px;
 }
 
-.OtherInfoTable tr:nth-child(4),
-.OtherInfoTable tr:nth-child(5){
+.OtherInfoTable tr:nth-child(6){
     color: rgb(194, 150, 150);
 }
 
-.OtherInfoTable tr:nth-child(4) td:nth-child(1),
-.OtherInfoTable tr:nth-child(5) td:nth-child(1){
+.OtherInfoTable tr:nth-child(6) td:nth-child(1){
     padding-left: 35px;
 }
 
