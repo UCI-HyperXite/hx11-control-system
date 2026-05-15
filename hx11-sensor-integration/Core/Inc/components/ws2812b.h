@@ -7,13 +7,13 @@
 
 #include "stm32h7xx_hal.h"
 
-#define LED_COUNT      150
+#define LED_COUNT      300
 #define BITS_PER_LED   24
 // prescaler = 0, timer clock = 64MHz, ARR = 80-1, pwm freq = 800 kHz
-#define WS2812_0       26   // ~0.4
-#define WS2812_1       52   // ~0.8
+#define WS2812_0       32   // ~0.4
+#define WS2812_1       64   // ~0.8
 
-#define RESET_SLOTS    50
+#define RESET_SLOTS    80
 #define PWM_BUF_LEN    (LED_COUNT * BITS_PER_LED + RESET_SLOTS)
 
 void WS2812_Init(TIM_HandleTypeDef *htim, uint32_t channel);
