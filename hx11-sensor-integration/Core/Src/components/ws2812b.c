@@ -44,6 +44,7 @@ void WS2812_SetLED(int led, uint8_t r, uint8_t g, uint8_t b)
 
 void WS2812_SetAll(uint8_t r, uint8_t g, uint8_t b)
 {
+	WS2812_ResetBuffer();
     for (int i = 0; i < LED_COUNT; i++)
     {
         WS2812_SetLED(i, r, g, b);
