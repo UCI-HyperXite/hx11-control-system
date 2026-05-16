@@ -478,6 +478,34 @@ void StartCommandTask(void *argument)
 {
   /* USER CODE BEGIN StartCommandTask */
   /* Infinite loop */
+
+	osMutexAcquire(sensorMutex, osWaitForever);
+	ClearSensorData(&sensorData);
+	osMutexRelease(sensorMutex);
+//
+//	printf("LED initializing...\r\n");
+//	WS2812_Init(&htim1, TIM_CHANNEL_1);
+//	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
+//	WS2812_SetAll(10, 12, 13);
+//	WS2812_Start();
+//	osDelay(1000);
+
+//	while(1){
+//		WS2812_SetAll(70, 0, 0);
+//		WS2812_Start();
+//		osDelay(1000);
+//
+//		WS2812_SetAll(0, 70, 0);
+//		WS2812_Start();
+//		osDelay(1000);
+//
+//		WS2812_SetAll(0, 0, 70);
+//		WS2812_Start();
+//		osDelay(1000);
+//
+//	}
+	printf("Finished LED initialization.\r\n");
+
 	printf("Start Receiving Commands!!\r\n");
 	HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
 	char msg[50];
@@ -611,6 +639,7 @@ void StartFSMTask(void *argument)
 			case NONE:
 				// TODO: STOP POD GO WAIT FOR GUI CONNECTION
 				// TODO: Ensure pod is not moving
+
 				printf(">NONE\r\n");
 				break;
 			case GUI_OK:
