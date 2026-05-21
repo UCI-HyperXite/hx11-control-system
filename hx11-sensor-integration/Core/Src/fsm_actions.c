@@ -95,7 +95,7 @@ void init_sensors(void) {
 	WS2812_Init(&htim1, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
 	//WS2812_SetAll(255, 255, 255);
-	WS2812_Start();
+	//WS2812_Start();
 	HAL_Delay(1000);
 	printf("Finished LED initialization.\r\n");
 
@@ -216,7 +216,7 @@ bool fault_conditions(SensorData *data) {
 
 	// LiDAR check
 //	if (data->lidar_dist > 114) return 1;
-	if (sensorData.lidar_dist < 200) {
+	if (sensorData.lidar_dist < 20) { //TODO: CHANGE THIS
 		printf("FAULT DETECTED! LIDAR\r\n");
 		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! LIDAR: %lu", sensorData.lidar_dist);
 		return 1;
@@ -226,7 +226,7 @@ bool fault_conditions(SensorData *data) {
 
 void init_actions(SensorData *data) {
 	init_sensors();
-	blink_color(255, 20, 147); //pink
+	solid_color(70, 0, 30); //pink
     HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); // brakes close
 
     // TODO: establish GUI comms again
@@ -240,7 +240,6 @@ void init_actions(SensorData *data) {
 
 void load_actions(SensorData *data) {
 //    printf("Entering LOAD state\r\n");
-	blink_color(0, 0, 255); //blue
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_RESET); //brakes open
     // TODO: LV stays ON
 //    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
@@ -254,7 +253,7 @@ void load_actions(SensorData *data) {
 }
 
 void precharge_actions(SensorData *data) {
-	blink_color(255, 255, 0); //yellow
+	solid_color(0, 40, 70); //blue
 	// brakes are open
 
 	// TODO: turn on HV sequence
@@ -264,7 +263,8 @@ void precharge_actions(SensorData *data) {
 }
 
 void start_actions(SensorData *data) {
-	blink_color(0, 255, 0); //green
+	solid_color(0, 70, 0); //green
+
 	//brakes are open
 	//	TODO: StartVFD_LIM();
 	//	TODO: SendSensorDataToGUI(data);
@@ -273,7 +273,7 @@ void start_actions(SensorData *data) {
 
 
 void stop_actions(SensorData *data) {
-	blink_color(255, 0, 0); //red
+	solid_color(70, 0, 0); //red
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	//	TODO: SetHVPower(OFF);
 	//	TODO: SendSensorDataToGUI(data);
@@ -281,7 +281,7 @@ void stop_actions(SensorData *data) {
 }
 
 void fault_actions(SensorData *data) {
-	blink_color(128, 0, 255); // purple
+	solid_color(40, 0, 70); //purple
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	// TODO: EmergencyRelayCutoff();
 	// TODO: StoreFaultInfo(data);

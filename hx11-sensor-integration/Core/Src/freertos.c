@@ -478,6 +478,7 @@ void StartCommandTask(void *argument)
 {
   /* USER CODE BEGIN StartCommandTask */
   /* Infinite loop */
+
 	printf("Start Receiving Commands!!\r\n");
 	HAL_UART_Receive_IT(&huart7, rxBuffer, 1);
 	char msg[50];

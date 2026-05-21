@@ -25,11 +25,15 @@ void WS2812_Init(TIM_HandleTypeDef *htim, uint32_t channel)
 {
     ws_tim = htim;
     ws_channel = channel;
+    ws2812_busy = 0;
     WS2812_ResetBuffer();
 }
 
 void WS2812_SetLED(int led, uint8_t r, uint8_t g, uint8_t b)
 {
+	if (led < 0 || led >= LED_COUNT)
+		return;
+
     uint32_t color = (g << 16) | (r << 8) | b;
 
     for (int i = 0; i < 24; i++)
@@ -79,3 +83,9 @@ void HAL_TIM_PWM_PulseFinishedCallback(TIM_HandleTypeDef *htim)
         ws2812_busy = 0;
     }
 }
+
+void solid_color(uint8_t r, uint8_t g, uint8_t b) {
+	WS2812_SetAll(r, g, b);
+	WS2812_Start();
+}
+
