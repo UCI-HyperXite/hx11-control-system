@@ -249,7 +249,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 									["Encoder Speed:", telemetry.encoderSpeed, "m/s"],
 									["Error Code:", telemetry.errorCode, "" ],
 									["Battery Voltage:", telemetry.batteryVoltage, "V" ],
-									["Motor Current:", telemetry.batteryVoltage, "V" ],
+									["Motor Current:", telemetry.motorCurrent, "V" ],
 									["Motor Temp", telemetry.motorTemp, "°C" ],
 									["Controller Temp", telemetry.controllerTemp, "°C" ],
 									//VFD
