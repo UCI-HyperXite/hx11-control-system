@@ -701,8 +701,13 @@ void StartCANTask(void *argument)
 {
   /* USER CODE BEGIN StartCANTask */
   /* Infinite loop */
+	printf("CAN Waiting\r\n");
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);  // ADD THIS
   for(;;)
   {
+	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);  // AND THIS
 	process_CAN250_msgs(&vfdData, &bmsData);
 
 	// Write CAN data to sensorData
@@ -728,9 +733,6 @@ void StartCANTask(void *argument)
 	sensorData.relay_status = bmsData.relayStatus;
 
 	osMutexRelease(sensorMutex);
-
-	// Give a small buffer for CAN messages to accumulate
-	// 10ms = 100Hz, which is fine for 250ms and 500ms CAN data
 	osDelay(10);
   }
   /* USER CODE END StartCANTask */
