@@ -114,6 +114,40 @@ void init_sensors(void) {
 	printf("Finished INAs initialization.\r\n");
 
 
+// CAN -- BMS and VFD
+	printf("CAN initializing...\r\n");
+	// can line 1
+	    HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 5, 0);
+	    HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
+
+
+	    // CAN1 filter (500)
+	    FDCAN_FilterTypeDef filter1;
+	    filter1.IdType = FDCAN_EXTENDED_ID;
+	    filter1.FilterIndex = 0;
+	    filter1.FilterType = FDCAN_FILTER_MASK;
+	    filter1.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+	    filter1.FilterID1 = 0;
+	    filter1.FilterID2 = 0;
+
+	    HAL_FDCAN_ConfigFilter(&hfdcan1, &filter1);
+
+
+	    if ((HAL_FDCAN_Start(&hfdcan1) != HAL_OK))
+	    {
+	        Error_Handler();
+	    }
+
+	    HAL_FDCAN_ConfigInterruptLines(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, FDCAN_INTERRUPT_LINE0);
+	    // Activate the notification for new data in FIFO0 for FDCAN1, FIFO1 for FDCAN2
+	    //this notification triggers the interrupt
+	    if ((HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK))
+	    {
+	        Error_Handler();
+	    }
+	    printf("Finished CAN initialization.\r\n");
+
+
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
 	printf("  LIDAR: %s | MPU: %s | INA_UP: %s | INA_DOWN: %s\r\n",
 	lidar_ok  ? "OK" : "FAIL",
@@ -304,12 +338,7 @@ void ClearSensorData(SensorData *s)
     s->pt_up = 0;
     s->pt_down = 0;
     s->lv_batt = 0;
-    s->hv_batt = 0;
-    s->hv_batt_temp = 0;
     s->batt_soc = 0;
-    s->lim_volt = 0;
-    s->lim_curr = 0;
-    s->imd = 0;
     s->pod_state = 0;
 
     strcpy(s->message, "Sensor Data Cleared");

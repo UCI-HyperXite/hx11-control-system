@@ -27,6 +27,8 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+#include "can.h"
+#include "fdcan.h"
 
 #define GUI_CONNECTED (1 << 0)
 #define ADC_READY_FLAG (1 << 0)

@@ -16,10 +16,15 @@ typedef struct __attribute__((packed)) {
 	float thermistors[8];
 	float pt_up, pt_down;         //ina219, left and right brake
 	float lv_batt;                //ina260
-	float hv_batt_temp, hv_batt;  //BMS
-	float batt_soc;               //Battery state of charge
-	float lim_volt, lim_curr;
-	float imd;  				  // IMD status
+
+	// VFD
+	uint8_t drive_direction, error_code;
+	double encoder_speed, batt_voltage, motor_curr, motor_temp, controller_temp;
+
+	// BMS
+	uint8_t relay_status;
+	double lowest_cell_volt, highest_cell_volt, batt_soc, highest_temp, pack_volt, lowest_temp;
+
 	uint8_t pod_state;
 	char message[100];
 } SensorData;

@@ -31,7 +31,9 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+VFD_CAN_Data vfdData;
+BMS_CAN_Data bmsData;
+IMD_CAN_Data imdData;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -151,6 +153,13 @@ const osThreadAttr_t fsmTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
+/* Definitions for CANTask */
+osThreadId_t CANTaskHandle;
+const osThreadAttr_t CANTask_attributes = {
+  .name = "CANTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal4,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -164,6 +173,7 @@ void StartINATask(void *argument);
 void StartTelemetryTask(void *argument);
 void StartCommandTask(void *argument);
 void StartFSMTask(void *argument);
+void StartCANTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -218,6 +228,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of fsmTask */
   fsmTaskHandle = osThreadNew(StartFSMTask, NULL, &fsmTask_attributes);
+
+  /* creation of CANTask */
+  CANTaskHandle = osThreadNew(StartCANTask, NULL, &CANTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -672,146 +685,54 @@ void StartFSMTask(void *argument)
 			sensorData.pod_state = (uint8_t)fsm.currentState;
 			osMutexRelease(sensorMutex);
 		}
-
-	    //run_pre_run_checklist(&sensorData);
-
-//		SensorData localCopy;
-
-//		osMutexAcquire(sensorMutex, osWaitForever);
-//		memcpy(&localCopy, &sensorData, sizeof(SensorData));
-//		osMutexRelease(sensorMutex);
-
-//		bool auto_trigger = fault_conditions(&localCopy);
-
-//		uint8_t pendingCmd;
-//		bool hasCommand = false; // checks to see if queue is empty
-
-
-
-//		switch(fsm.currentState) {
-//		case GUI_OK:
-//			if (fsm.stateEntry) {
-//				fsm.stateEntry = 0;
-//			}
-//			// TODO: ENSURE EVERYTHING IS OFF
-//
-//		case INIT:
-//			if (fsm.stateEntry) {
-//				fsm.stateEntry = 0;
-//				init_actions(&sensorData);
-//			}
-
-			// manual GUI trigger
-//			if(preRun.allOk && hasCommand && pendingCmd == CMD_LOAD) {
-//				//guiCommand = CMD_NONE; // freertos message queue FIFO buffer -- race condition
-//				fsm.previousState = fsm.currentState;
-//				fsm.currentState = LOAD;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		case LOAD:
-//			if (fsm.stateEntry) {
-//				fsm.stateEntry = 0;
-//				load_actions(&sensorData);
-//			}
-
-			// automatic trigger
-//			fsm.previousState = fsm.currentState;
-//			if (auto_trigger) { // this state passes through
-//				fsm.currentState = FAULT;
-//				fsm.stateEntry = 1;
-//			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_PRECHARGE) { // manual GUI trigger
-//				fsm.currentState = PRECHARGE;
-//				fsm.stateEntry = 1;
-//			} else if(preRun.allOk && hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
-//				fsm.currentState = STOP;
-//				fsm.stateEntry = 1;
-//			} else {
-//				fsm.currentState = LOAD;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		case PRECHARGE:
-//			if (fsm.stateEntry) {
-//				precharge_actions(&sensorData);
-//				fsm.stateEntry = 0;
-//			}
-//
-//			fsm.previousState = fsm.currentState;
-//			if (auto_trigger) {
-//				fsm.currentState = FAULT;
-//				fsm.stateEntry = 1;
-//			}
-			// TODO: automatic trigger -- if voltage/current stabilize
-  //			else if (voltage_current) {
-  //				fsm.currentState = START;
-  //		        fsm.stateEntry = 1;
-  //			}
-//			else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
-//				fsm.currentState = STOP;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		case START:
-//			if (fsm.stateEntry) {
-//				start_actions(&sensorData);
-//				fsm.stateEntry = 0;
-//			}
-//
-//			fsm.previousState = fsm.currentState;
-//			if (auto_trigger) {
-//				fsm.currentState = FAULT;
-//				fsm.stateEntry = 1;
-//			} else if(hasCommand && pendingCmd == CMD_STOP) { // manual GUI trigger
-//				fsm.currentState = STOP;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		case FAULT:
-//			if (fsm.stateEntry) {
-//				fault_actions(&sensorData);
-//				fsm.stateEntry = 0;
-//			}
-//
-//			fsm.previousState = fsm.currentState;
-//			fsm.currentState = FAULT;  // TODO: I CHANGED THIS
-//			fsm.stateEntry = 1;
-//			break;
-//		case HALT:
-//			if (fsm.stateEntry) {
-//				halt_actions(&sensorData);
-//				fsm.stateEntry = 0;
-//			}
-//
-//			fsm.previousState = fsm.currentState;
-//			if (hasCommand && pendingCmd == CMD_INIT) {
-//				fsm.currentState = INIT;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		case STOP:
-//			if (fsm.stateEntry) {
-//				stop_actions(&sensorData);
-//				fsm.stateEntry = 0;
-//			}
-//
-//			fsm.previousState = fsm.currentState;
-//			if (auto_trigger) {
-//				fsm.currentState = FAULT;
-//				fsm.stateEntry = 1;
-//			}
-//			else if (hasCommand && pendingCmd == CMD_INIT) {
-//				fsm.currentState = INIT;
-//				fsm.stateEntry = 1;
-//			} else if (hasCommand && pendingCmd == CMD_LOAD) {
-//				fsm.currentState = LOAD;
-//				fsm.stateEntry = 1;
-//			}
-//			break;
-//		}
 		osDelay(50);
 	}
   /* USER CODE END StartFSMTask */
+}
+
+/* USER CODE BEGIN Header_StartCANTask */
+/**
+* @brief Function implementing the CANTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartCANTask */
+void StartCANTask(void *argument)
+{
+  /* USER CODE BEGIN StartCANTask */
+  /* Infinite loop */
+  for(;;)
+  {
+	process_CAN250_msgs(&vfdData, &bmsData);
+
+	// Write CAN data to sensorData
+	osMutexAcquire(sensorMutex, osWaitForever);
+
+	// VFD data
+	sensorData.drive_direction = vfdData.drivingDirection;
+	sensorData.encoder_speed = vfdData.encoderSpeed;
+	sensorData.error_code = vfdData.errorCode;
+	sensorData.batt_voltage = vfdData.batteryVoltage;
+	sensorData.motor_curr = vfdData.motorCurrent;
+	sensorData.motor_temp = vfdData.motorTemp;
+	sensorData.controller_temp = vfdData.controllerTemp;
+
+	// BMS data
+	sensorData.lowest_cell_volt = bmsData.lowestCellVoltage;
+	sensorData.highest_cell_volt = bmsData.highestCellVoltage;
+	sensorData.batt_soc = bmsData.packSOC;
+	sensorData.highest_temp = bmsData.highestTemp;
+	sensorData.pack_volt = bmsData.packVoltage;
+	sensorData.lowest_temp = bmsData.lowestTemp;
+	sensorData.relay_status = bmsData.relayStatus;
+
+	osMutexRelease(sensorMutex);
+
+	// Give a small buffer for CAN messages to accumulate
+	// 10ms = 100Hz, which is fine for 250ms and 500ms CAN data
+	osDelay(10);
+  }
+  /* USER CODE END StartCANTask */
 }
 
 /* Private application code --------------------------------------------------*/
