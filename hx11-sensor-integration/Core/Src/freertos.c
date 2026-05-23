@@ -719,8 +719,9 @@ void StartCANTask(void *argument)
 
 	// BMS data
 	sensorData.lowest_cell_volt = bmsData.lowestCellVoltage;
+	sensorData.bms_test_counter = bmsData.bmsTestCounter;
 	sensorData.highest_cell_volt = bmsData.highestCellVoltage;
-	sensorData.batt_soc = bmsData.packSOC;
+	sensorData.pack_soc = bmsData.packSOC;
 	sensorData.highest_temp = bmsData.highestTemp;
 	sensorData.pack_volt = bmsData.packVoltage;
 	sensorData.lowest_temp = bmsData.lowestTemp;

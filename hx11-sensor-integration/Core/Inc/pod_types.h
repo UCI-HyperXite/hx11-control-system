@@ -18,12 +18,25 @@ typedef struct __attribute__((packed)) {
 	float lv_batt;                //ina260
 
 	// VFD
-	uint8_t drive_direction, error_code;
-	double encoder_speed, batt_voltage, motor_curr, motor_temp, controller_temp;
+	uint8_t drive_direction,
+	error_code;
+
+	double encoder_speed,
+	batt_voltage,
+	motor_curr,
+	motor_temp,
+	controller_temp;
 
 	// BMS
-	uint8_t relay_status;
-	double lowest_cell_volt, highest_cell_volt, batt_soc, highest_temp, pack_volt, lowest_temp;
+	uint8_t relay_status, bms_test_counter;
+	double lowest_cell_volt,
+	highest_cell_volt,
+	pack_soc,
+	highest_temp,
+	pack_volt,
+	lowest_temp;
+
+	uint8_t dis_en_status;
 
 	uint8_t pod_state;
 	char message[100];

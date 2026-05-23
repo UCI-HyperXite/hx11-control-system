@@ -338,8 +338,25 @@ void ClearSensorData(SensorData *s)
     s->pt_up = 0;
     s->pt_down = 0;
     s->lv_batt = 0;
-    s->batt_soc = 0;
     s->pod_state = 0;
+
+    s->drive_direction = 0;
+    s->encoder_speed = 0;
+    s->error_code = 0;
+    s->batt_voltage = 0;
+    s->motor_curr = 0;
+    s->motor_temp = 0;
+    s->controller_temp = 0;
+
+	// BMS data
+    s->lowest_cell_volt = 0;
+    s->highest_cell_volt = 0;
+    s->pack_soc = 0;
+    s->highest_temp = 0;
+    s->pack_volt = 0;
+    s->lowest_temp = 0;
+    s->relay_status = 0;
+    s->bms_test_counter = 0;
 
     strcpy(s->message, "Sensor Data Cleared");
 }
