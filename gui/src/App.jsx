@@ -34,6 +34,7 @@ export default function App() {
 	roll: "0.00",
     pitch: "0.00",
 
+	lv_batt: "0.00",
 	//VFD
 	drivingDirection: "N/A",
 	encoderSpeed: "0.00", // m/s
@@ -49,31 +50,24 @@ export default function App() {
 	packSOC: "0.00",			
 	highestTemp: "0.00",		// signed C?
 	bmsTestCounter: "0.00",
-	relayStatus: "n/a",
+	relayStatus: "N/A",
 	packVoltage: "0.00",
 	lowestTemp: "0.00",
-	dischargeEnableStatus: "n/a",
+	dischargeEnableStatus: "N/A",
 
 	//IMD
-	insulationResistance: "0.00",
-	iso_status: "n/a",
-	imd_counter: "0.00",
-	imd_warnings: "0.00",
-
-	
-    limCurrent: "0.00",
-    battVoltage: "0.00",
-	lvbattVoltage: "0.00",
-    battCurrent: "0.00",
-    battSoC: "0.00",
-    battTemp: "0.00",
-    imdStatus: "n/a",
+	// insulationResistance: "0.00",
+	// iso_status: "N/A",
+	// imd_counter: "0.00",
+	// imd_warnings: "N/A",
+	// deviceActivity: "N/A",
 	
 	//Pressure
     pressure1: "0",
     pressure2: "0",
 
-    therm1: "00.00",
+
+    therm1: "0.00",
     therm2: "0.00", 
     therm3: "0.00",
     therm4: "0.00",
@@ -209,43 +203,37 @@ export default function App() {
 							
 							roll: data.roll ?? prev.roll,
 							pitch: data.pitch ?? prev.pitch,
+							lv_batt: data.lv_batt ?? prev.lv_batt,
 
 							//VFD
-							drivingDirection: data.drivingDirection ?? prev.drivingDirection,
-							encoderSpeed:  data.encoderSpeed ?? prev.encoderSpeed, // m/s
-							errorCode:  data.errorCode ?? prev.errorCode,	  // tbd
-							batteryVoltage:  data.batteryVoltage ?? prev.batteryVoltage, //V
-							motorCurrent:  data.motorCurrent ?? prev.motorCurrent,   //A
-							motorTemp:  data.motorTemp ?? prev.motorTemp,		// C or F
-							controllerTemp:  data.controllerTemp ?? prev.controllerTemp, // C or F
+							drivingDirection: data.drive_direction ?? prev.drivingDirection,
+							encoderSpeed:  data.encoder_speed ?? prev.encoderSpeed, // m/s
+							errorCode:  data.error_code ?? prev.errorCode,	  // tbd
+							batteryVoltage:  data.batt_voltage ?? prev.batteryVoltage, //V
+							motorCurrent:  data.motor_curr ?? prev.motorCurrent,   //A
+							motorTemp:  data.motor_temp ?? prev.motorTemp,		// C or F
+							controllerTemp:  data.controller_temp ?? prev.controllerTemp, // C or F
 
 							//BMS
-							lowestCellVoltage: data.low_cell ?? prev.lowestCellVoltage,
-							highestCellVoltage: data.high_cell ?? prev.highestCellVoltage,
+							lowestCellVoltage: data.lowest_cell_volt ?? prev.lowestCellVoltage,
+							highestCellVoltage: data.highest_cell_volt ?? prev.highestCellVoltage,
 
-							packSOC: data.packSOC ?? prev.packSOC,			
-							highestTemp: data.highestTemp ?? prev.highestTemp,		// signed C?
-							bmsTestCounter: data.bmsTestCounter ?? prev.bmsTestCounter,
-							relayStatus: data.relayStatus ?? prev.relayStatus,
-							packVoltage: data.packVoltage ?? prev.packVoltage,
-							lowestTemp: data.lowestTemp ?? prev.lowestTemp,
+							packSOC: data.pack_soc ?? prev.packSOC,			
+							highestTemp: data.highest_temp ?? prev.highestTemp,		// signed C?
+							bmsTestCounter: data.bms_test_counter ?? prev.bmsTestCounter,
+							relayStatus: data.relay_status ?? prev.relayStatus,
+							packVoltage: data.pack_volt ?? prev.packVoltage,
+							lowestTemp: data.lowest_temp ?? prev.lowestTemp,
 
 							dischargeEnableStatus: data.dischargeEnableStatus ?? prev.dischargeEnableStatus,
 
+							// //IMD
+							// insulationResistance: data.insulationResistance ?? prev.insulationResistance,
+							// iso_status: data.iso_status ?? prev.iso_status,
+							// imd_counter: data.imd_counter ?? prev.imd_counter,
+							// imd_warnings: data.imd_warnings ?? prev.imd_warnings,
+							// deviceActivity: data.deviceActivity ?? prev.deviceActivity,
 
-							//IMD
-							insulationResistance: data.insulationResistance ?? prev.insulationResistance,
-							iso_status: data.iso_status ?? prev.iso_status,
-							imd_counter: data.imd_counter ?? prev.imd_counter,
-							imd_warnings: data.imd_warnings ?? prev.imd_warnings,
-
-							limCurrent: data.lim_curr ?? prev.limCurrent,
-							battVoltage: data.hv_batt ?? prev.battVoltage,
-							lvbattVoltage: data.lv_batt ?? prev.lvbattVoltage, //ina260
-							battCurrent: data.batt_curr ?? prev.battCurrent,
-							battSoC: data.batt_soc ?? prev.battSoC,
-							battTemp: data.hv_batt_temp ?? prev.battTemp,
-							imdStatus: data.imd ?? prev.imdStatus,
 							
 							pressure1: data.pt_up ?? prev.pressure1,
 							pressure2: data.pt_down ?? prev.pressure2,

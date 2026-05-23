@@ -241,47 +241,41 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 								</tr>
 							</thead>
 							<tbody>
-								{[	// VFD comment
-									// ["Driving Direction:", telemetry.drivingDirection, ""],
-									// ["Encoder Speed:", telemetry.encoderSpeed, "m/s"],
-									// ["Error Code:", telemetry.errorCode, "" ],
-									// ["Battery Voltage:", telemetry.batteryVoltage, "V" ],
-									// ["Motor Current:", telemetry.batteryVoltage, "V" ],
-									// ["Motor Temp", telemetry.motorTemp, "°C" ],
-									// ["Controller Temp", telemetry.controllerTemp, "°C" ],
+								{[
+									["LV BATT:", telemetry.lv_batt, "V"],
+
+									//VFD
+									["VFD Driving Direction:", telemetry.drivingDirection, ""],
+									["Encoder Speed:", telemetry.encoderSpeed, "m/s"],
+									["Error Code:", telemetry.errorCode, "" ],
+									["Battery Voltage:", telemetry.batteryVoltage, "V" ],
+									["Motor Current:", telemetry.batteryVoltage, "V" ],
+									["Motor Temp", telemetry.motorTemp, "°C" ],
+									["Controller Temp", telemetry.controllerTemp, "°C" ],
 									//VFD
 
-									["HV Low Cell Volt:", telemetry.lowestCellVoltage, "V"],
+									//BMS
+									["BMS HV Low Cell Volt:", telemetry.lowestCellVoltage, "V"],
 									["HV High Cell Volt:", telemetry.highestCellVoltage, "V"],
-
-
-									//BMS comment
-									// ["Pack SOC:", telemetry.packSOC, "%"],
-									// ["Highest Temp:", telemetry.highestTemp, "°C"],
-									// ["BMS Test Counter:", telemetry.bmsTestCounter, ""],
-									// ["Relay Status:", telemetry.relayStatus, ""],
-									// ["Pack Voltage:", telemetry.packVoltage, "V"],
-									// ["Lowest Temp:", telemetry.lowestTemp, "°C"],
+									["Pack SOC:", telemetry.packSOC, "%"],
+									["Highest Temp:", telemetry.highestTemp, "°C"],
+									["Test Counter:", telemetry.bmsTestCounter, ""],
+									["Relay Status:", telemetry.relayStatus, ""],
+									["Pack Voltage:", telemetry.packVoltage, "V"],
+									["Lowest Temp:", telemetry.lowestTemp, "°C"],
+									["Discharge Enable Status:", telemetry.dischargeEnableStatus, ""],
+									
 									//BMS
 
-									["BMS Discharge Enable Status:", telemetry.dischargeEnableStatus, ""],
-
-									//IMD Comment
+									//IMD
 									// ["Insulation Resistance:", telemetry.insulationResistance, "Ω"],
 									// ["ISO Status:", telemetry.iso_status, ""],
 									// ["IMD Counter:", telemetry.imd_counter, ""],
 									// ["IMD Warnings:", telemetry.imd_warnings, ""],
 									// ["Battery Voltage:", telemetry.battVoltage, "V"],
+									// ["Device Activity:", telemetry.deviceActivity, ""],
 									//IMD 
 
-									["HV Batt Current:", telemetry.battCurrent, "A"],
-									["HV Batt SoC:", telemetry.battSoC, "%"],
-									
-									["LIM Current:", telemetry.limCurrent, "A"],
-									["LV Batt Voltage ", telemetry.lvbattVoltage, "V"],
-									
-									["Batt Temp:", telemetry.battTemp, "°C"],
-									["IMD Status:", telemetry.imdStatus, ""],
 								].map(([label, value, unit]) => (
 									<tr key={label}>
 										<td>{label}</td>
@@ -356,7 +350,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 										fontSize: "1.1vw",
 										fontFamily: "monospace",
 										color: log.includes("✓") ? "#7effa0"
-											: log.includes("failed") || log.includes("error") ? "#ff8080"
+											: log.includes("failed") || (log.includes("error") && !log.includes("error_code")) ? "#ff8080"
 											: "#f0e6f2",
 										borderBottom: "1px solid #3d3050",
 										paddingBottom: "0.5vw",

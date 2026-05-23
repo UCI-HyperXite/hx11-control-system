@@ -26,15 +26,17 @@ html, body, #root { height: 100%; margin: 0; padding: 0; overflow: hidden; backg
 
 .OtherInfoTable td:nth-child(1){
   text-align: left;
-  padding-left: 20px;
+  padding-left: 10px;
 }
 
-.OtherInfoTable tr:nth-child(6){
-    color: rgb(194, 150, 150);
+.OtherInfoTable tr:nth-child(n+3):nth-child(-n+7),
+.OtherInfoTable tr:nth-child(n+9):nth-child(-n+16) {
+    color: rgb(255, 219, 219);
 }
 
-.OtherInfoTable tr:nth-child(6) td:nth-child(1){
-    padding-left: 35px;
+.OtherInfoTable tr:nth-child(n+3):nth-child(-n+7) td:nth-child(1),
+.OtherInfoTable tr:nth-child(n+9):nth-child(-n+16) td:nth-child(1) {
+    padding-left: 25px;
 }
 
 
