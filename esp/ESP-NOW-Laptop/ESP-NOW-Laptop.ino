@@ -33,11 +33,29 @@ typedef struct __attribute__((packed)) SensorData {
   float roll, pitch;
 	float thermistors[8];
 	float pt_up, pt_down;
-	float lv_batt;
-  float hv_batt_temp, hv_batt;
-  float batt_soc;
-  float lim_volt, lim_curr;
-  float imd;             
+  float lv_batt;
+
+  // VFD
+	uint8_t drive_direction,
+	error_code;
+
+	double encoder_speed,
+	batt_voltage,
+	motor_curr,
+	motor_temp,
+	controller_temp;
+
+	// BMS
+	uint8_t relay_status, bms_test_counter;
+	double lowest_cell_volt,
+	highest_cell_volt,
+	pack_soc,
+	highest_temp,
+	pack_volt,
+	lowest_temp;
+
+	uint8_t dis_en_status;
+         
   uint8_t pod_state;
 	char message[100];
 } SensorData;
@@ -128,8 +146,28 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
   // Batteries
   Serial.print(",\"lv_batt\":"); Serial.print(telemetryData.lv_batt, 2);
-  Serial.print(",\"hv_batt_temp\":"); Serial.print(telemetryData.hv_batt_temp, 2);
-  Serial.print(",\"hv_batt\":"); Serial.print(telemetryData.hv_batt, 2);
+  
+  //VFD
+  Serial.print(",\"drive_direction\":"); Serial.print(telemetryData.drive_direction);
+  Serial.print(",\"error_code\":"); Serial.print(telemetryData.error_code);
+
+  Serial.print(",\"encoder_speed\":"); Serial.print(telemetryData.encoder_speed, 2);
+  Serial.print(",\"batt_voltage\":"); Serial.print(telemetryData.batt_voltage, 2);
+  Serial.print(",\"motor_curr\":"); Serial.print(telemetryData.motor_curr, 2);
+  Serial.print(",\"motor_temp\":"); Serial.print(telemetryData.motor_temp, 2);
+  Serial.print(",\"controller_temp\":"); Serial.print(telemetryData.controller_temp, 2);
+
+  // BMS
+  Serial.print(",\"relay_status\":"); Serial.print(telemetryData.relay_status);
+  Serial.print(",\"bms_test_counter\":"); Serial.print(telemetryData.bms_test_counter);
+  Serial.print(",\"lowest_cell_volt\":"); Serial.print(telemetryData.lowest_cell_volt, 2);
+  Serial.print(",\"highest_cell_volt\":"); Serial.print(telemetryData.highest_cell_volt, 2);
+  Serial.print(",\"pack_soc\":"); Serial.print(telemetryData.pack_soc, 2);
+  Serial.print(",\"highest_temp\":"); Serial.print(telemetryData.highest_temp, 2);
+  Serial.print(",\"pack_volt\":"); Serial.print(telemetryData.pack_volt, 2);
+  Serial.print(",\"lowest_temp\":"); Serial.print(telemetryData.lowest_temp, 2);
+
+  Serial.print(",\"dis_en_status\":"); Serial.print(telemetryData.dis_en_status);
 
   Serial.print(",\"msg\":\"");
   telemetryData.message[99] = '\0';

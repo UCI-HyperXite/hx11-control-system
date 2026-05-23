@@ -33,11 +33,29 @@ typedef struct __attribute__((packed)) SensorData {
   float roll, pitch;
 	float thermistors[8];
 	float pt_up, pt_down;
-	float lv_batt;
-  float hv_batt_temp, hv_batt;
-  float batt_soc;
-  float lim_volt, lim_curr;
-  float imd;             
+  float lv_batt;
+
+  // VFD
+	uint8_t drive_direction,
+	error_code;
+
+	double encoder_speed,
+	batt_voltage,
+	motor_curr,
+	motor_temp,
+	controller_temp;
+
+	// BMS
+	uint8_t relay_status, bms_test_counter;
+	double lowest_cell_volt,
+	highest_cell_volt,
+	pack_soc,
+	highest_temp,
+	pack_volt,
+	lowest_temp;
+
+	uint8_t dis_en_status;
+           
   uint8_t pod_state;
 	char message[100];
 } SensorData;
@@ -201,6 +219,27 @@ void loop() {
   if (readPacket()) {
     lastHeartbeatSTM = millis();
     stmTimedOut = false;
+
+    // Print VFD fields
+    Serial.print("drive_direction: ");   Serial.println(telemetryData.drive_direction);
+    Serial.print("error_code: ");        Serial.println(telemetryData.error_code);
+    Serial.print("encoder_speed: ");     Serial.println(telemetryData.encoder_speed);
+    Serial.print("batt_voltage: ");      Serial.println(telemetryData.batt_voltage);
+    Serial.print("motor_curr: ");        Serial.println(telemetryData.motor_curr);
+    Serial.print("motor_temp: ");        Serial.println(telemetryData.motor_temp);
+    Serial.print("controller_temp: ");   Serial.println(telemetryData.controller_temp);
+
+    // Print BMS fields
+    Serial.print("relay_status: ");      Serial.println(telemetryData.relay_status);
+    Serial.print("bms_test_counter: ");  Serial.println(telemetryData.bms_test_counter);
+    Serial.print("lowest_cell_volt: ");  Serial.println(telemetryData.lowest_cell_volt);
+    Serial.print("highest_cell_volt: "); Serial.println(telemetryData.highest_cell_volt);
+    Serial.print("pack_soc: ");          Serial.println(telemetryData.pack_soc);
+    Serial.print("highest_temp: ");      Serial.println(telemetryData.highest_temp);
+    Serial.print("pack_volt: ");         Serial.println(telemetryData.pack_volt);
+    Serial.print("lowest_temp: ");       Serial.println(telemetryData.lowest_temp);
+
+
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&telemetryData, sizeof(SensorData));
 
     if (result != ESP_OK) {
