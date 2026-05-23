@@ -220,26 +220,6 @@ void loop() {
     lastHeartbeatSTM = millis();
     stmTimedOut = false;
 
-    // Print VFD fields
-    Serial.print("drive_direction: ");   Serial.println(telemetryData.drive_direction);
-    Serial.print("error_code: ");        Serial.println(telemetryData.error_code);
-    Serial.print("encoder_speed: ");     Serial.println(telemetryData.encoder_speed);
-    Serial.print("batt_voltage: ");      Serial.println(telemetryData.batt_voltage);
-    Serial.print("motor_curr: ");        Serial.println(telemetryData.motor_curr);
-    Serial.print("motor_temp: ");        Serial.println(telemetryData.motor_temp);
-    Serial.print("controller_temp: ");   Serial.println(telemetryData.controller_temp);
-
-    // Print BMS fields
-    Serial.print("relay_status: ");      Serial.println(telemetryData.relay_status);
-    Serial.print("bms_test_counter: ");  Serial.println(telemetryData.bms_test_counter);
-    Serial.print("lowest_cell_volt: ");  Serial.println(telemetryData.lowest_cell_volt);
-    Serial.print("highest_cell_volt: "); Serial.println(telemetryData.highest_cell_volt);
-    Serial.print("pack_soc: ");          Serial.println(telemetryData.pack_soc);
-    Serial.print("highest_temp: ");      Serial.println(telemetryData.highest_temp);
-    Serial.print("pack_volt: ");         Serial.println(telemetryData.pack_volt);
-    Serial.print("lowest_temp: ");       Serial.println(telemetryData.lowest_temp);
-
-
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&telemetryData, sizeof(SensorData));
 
     if (result != ESP_OK) {
