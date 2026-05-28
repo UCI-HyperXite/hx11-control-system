@@ -158,63 +158,11 @@ void init_sensors(void) {
 	osEventFlagsSet(sensorInitFlag, SENSOR_INIT_DONE);
 }
 
-//void pre_run_checklist(SensorData *data)
-//{
-//	// testing purposes lolz
-////	preRun.sensorsOk = 1;
-////	preRun.brakesClosed = 1;
-////	preRun.tiltOk = 1;
-////	preRun.pneumaticsOk = 1;
-////	preRun.batteryOk = 1;
-//
-//	SensorData localCopy;
-//	osMutexAcquire(sensorMutex, osWaitForever);
-//	memcpy(&localCopy, data, sizeof(SensorData));
-//	osMutexRelease(sensorMutex);
-//
-//
-//    // TODO: GUI comms check
-//
-//    // sensors initialized -- can be read
-//	preRun.sensorsOk = 1;
-//
-//    // TODO: brakes closed
-//
-//	// LEDs turned on
-//	WS2812_SetAll(128, 0, 64);
-//	WS2812_Start();
-//	preRun.ledsOk = 1;
-//
-//    // tilt range check -- roll, pitch
-//		// TODO: change bounds vals and error ping
-//	if (localCopy.roll >= 23.34 || localCopy.pitch >= 23.34) {
-//		preRun.tiltOk = 0;
-//		printf("ERROR");
-//	} else {
-//		preRun.tiltOk = 1;
-//	}
-//
-//    // TODO: pneumatics pressure
-//
-//    // TODO: battery safe -- within V, I, T range
-//
-//	preRun.allOk = (
-//		preRun.sensorsOk &&
-//		preRun.brakesClosed &&
-//		preRun.ledsOk &&
-//		preRun.tiltOk &&
-//		preRun.pneumaticsOk &&
-//		preRun.batteryOk
-//	);
-//}
 
 bool fault_conditions(SensorData *data) {
 	/*
 	 * Returns true when encountering a fault condition
 	 */
-	// dynamics
-//	if (data->roll >= 23.34 || data->pitch >= 23.34) return 1;
-
 	// TODO: FIX THIS ERROR CHECK
 	if (sensorData.roll >= 23.34) {
 		printf("FAULT DETECTED! Roll\r\n");
@@ -234,11 +182,8 @@ bool fault_conditions(SensorData *data) {
 	// TODO: braking (pneumatics)
 
 	// LIM
-//	for (int i = 0; i < THERMISTOR_COUNT; i++) {
-//		if (data->thermistors[i] >= 80) return 1;
-//	}
 	for (int i = 0; i < THERMISTOR_COUNT; i++) {
-		if (sensorData.thermistors[i] >= 30) {
+		if (sensorData.thermistors[i] >= 68) {
 			printf("FAULT DETECTED! Temperature\r\n");
 			snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Temperature: %0.5f", sensorData.thermistors[i]);
 			return 1;
@@ -247,9 +192,6 @@ bool fault_conditions(SensorData *data) {
 
 	// TODO: battery
 	// TODO: powers
-
-	// LiDAR check
-//	if (data->lidar_dist > 114) return 1;
 	if (sensorData.lidar_dist < 20) { //TODO: CHANGE THIS
 		printf("FAULT DETECTED! LIDAR\r\n");
 		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! LIDAR: %lu", sensorData.lidar_dist);
@@ -262,37 +204,20 @@ void init_actions(SensorData *data) {
 	init_sensors();
 	solid_color(70, 0, 30); //pink
     HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); // brakes close
-
-    // TODO: establish GUI comms again
-
-    // TODO: LV system ON -- calibrate sensors??? what does this mean
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
-    // TODO: send sensor data to GUI
     printf("INIT complete -- waiting for transition\r\n");
 }
 
 void load_actions(SensorData *data) {
-//    printf("Entering LOAD state\r\n");
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_RESET); //brakes open
-    // TODO: LV stays ON
-//    HAL_GPIO_WritePin(GPIOX, LV_ENABLE_PIN, GPIO_PIN_SET);
-
     // TODO: HV OFF
 //    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
-
-    // TODO: send sensor data to GUI
-
     printf("LOAD complete -- waiting for transition\r\n");
 }
 
 void precharge_actions(SensorData *data) {
 	solid_color(0, 40, 70); //blue
-	// brakes are open
 
 	// TODO: turn on HV sequence
-
-	// TODO: send sensor data to GUI
 	printf("PRECHARGE complete -- waiting for transition\r\n");
 }
 
@@ -301,7 +226,6 @@ void start_actions(SensorData *data) {
 
 	//brakes are open
 	//	TODO: StartVFD_LIM();
-	//	TODO: SendSensorDataToGUI(data);
 	printf("START complete -- waiting for transition\r\n");
 }
 
@@ -310,7 +234,6 @@ void stop_actions(SensorData *data) {
 	solid_color(70, 0, 0); //red
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	//	TODO: SetHVPower(OFF);
-	//	TODO: SendSensorDataToGUI(data);
 	printf("STOP complete -- waiting for transition\r\n");
 }
 
@@ -318,8 +241,6 @@ void fault_actions(SensorData *data) {
 	solid_color(40, 0, 70); //purple
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	// TODO: EmergencyRelayCutoff();
-	// TODO: StoreFaultInfo(data);
-
 	printf("FAULT complete -- waiting for transition\r\n");
 }
 
