@@ -67,7 +67,6 @@ void init_sensors(void) {
 
 
 //	 THERMISTORS
-	printf("THERMS initializing...\r\n");
 	firstConversionComplete = 0;
 
 	HAL_StatusTypeDef res = HAL_ADC_Start_DMA(&hadc1, (uint32_t*)rawValues, THERMISTOR_COUNT);
@@ -91,7 +90,6 @@ void init_sensors(void) {
 
 
 //  LED
-	printf("LED initializing...\r\n");
 	WS2812_Init(&htim1, TIM_CHANNEL_1);
 	HAL_TIM_PWM_Stop_DMA(&htim1, TIM_CHANNEL_1);
 	//WS2812_SetAll(255, 255, 255);
@@ -101,7 +99,6 @@ void init_sensors(void) {
 
 
 // INA
-	printf("INAs initializing...\r\n");
 	ina_up_ok = INA219_Init(&ina219_upstream, &hi2c1, INA219_ADDRESS_40);
 	if (!ina_up_ok) {
 	printf("WARNING: INA219 upstream (0x%02X) init failed\r\n", INA219_ADDRESS_40);
@@ -115,37 +112,36 @@ void init_sensors(void) {
 
 
 // CAN -- BMS and VFD
-	printf("CAN initializing...\r\n");
 	// can line 1
-	    HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 5, 0);
-	    HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
+	HAL_NVIC_SetPriority(FDCAN1_IT0_IRQn, 5, 0);
+	HAL_NVIC_EnableIRQ(FDCAN1_IT0_IRQn);
 
 
-	    // CAN1 filter (500)
-	    FDCAN_FilterTypeDef filter1;
-	    filter1.IdType = FDCAN_EXTENDED_ID;
-	    filter1.FilterIndex = 0;
-	    filter1.FilterType = FDCAN_FILTER_MASK;
-	    filter1.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
-	    filter1.FilterID1 = 0;
-	    filter1.FilterID2 = 0;
+	// CAN1 filter (500)
+	FDCAN_FilterTypeDef filter1;
+	filter1.IdType = FDCAN_EXTENDED_ID;
+	filter1.FilterIndex = 0;
+	filter1.FilterType = FDCAN_FILTER_MASK;
+	filter1.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
+	filter1.FilterID1 = 0;
+	filter1.FilterID2 = 0;
 
-	    HAL_FDCAN_ConfigFilter(&hfdcan1, &filter1);
+	HAL_FDCAN_ConfigFilter(&hfdcan1, &filter1);
 
 
-	    if ((HAL_FDCAN_Start(&hfdcan1) != HAL_OK))
-	    {
-	        Error_Handler();
-	    }
+	if ((HAL_FDCAN_Start(&hfdcan1) != HAL_OK))
+	{
+		Error_Handler();
+	}
 
-	    HAL_FDCAN_ConfigInterruptLines(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, FDCAN_INTERRUPT_LINE0);
-	    // Activate the notification for new data in FIFO0 for FDCAN1, FIFO1 for FDCAN2
-	    //this notification triggers the interrupt
-	    if ((HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK))
-	    {
-	        Error_Handler();
-	    }
-	    printf("Finished CAN initialization.\r\n");
+	HAL_FDCAN_ConfigInterruptLines(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, FDCAN_INTERRUPT_LINE0);
+	// Activate the notification for new data in FIFO0 for FDCAN1, FIFO1 for FDCAN2
+	//this notification triggers the interrupt
+	if ((HAL_FDCAN_ActivateNotification(&hfdcan1, FDCAN_IT_RX_FIFO0_NEW_MESSAGE, 0) != HAL_OK))
+	{
+		Error_Handler();
+	}
+	printf("Finished CAN initialization.\r\n");
 
 
 	printf("===== SENSOR INITIALIZATION COMPLETE =====\r\n");
@@ -180,6 +176,11 @@ bool fault_conditions() {
 	}
 
 	// TODO: braking (pneumatics)
+	if (sensorData.pt_up >= 155 || sensorData.pt_down >= 155) {
+		printf("FAULT DETECTED! PNEUMATICS\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_up);
+		return 1;
+	}
 
 	// LIM
 	for (int i = 0; i < THERMISTOR_COUNT; i++) {
@@ -190,13 +191,14 @@ bool fault_conditions() {
 		}
 	}
 
-	// TODO: battery
-	// TODO: powers
 	if (sensorData.lidar_dist < 20) { //TODO: CHANGE THIS
 		printf("FAULT DETECTED! LIDAR\r\n");
 		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! LIDAR: %lu", sensorData.lidar_dist);
 		return 1;
 	}
+
+	// TODO: battery
+	// TODO: powers
 	return 0;
 }
 
