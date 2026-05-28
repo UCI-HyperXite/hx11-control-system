@@ -64,6 +64,7 @@ osMutexId_t sensorMutex;
 osMutexId_t i2cMutex;
 osEventFlagsId_t GUIConnectionFlag;
 osEventFlagsId_t sensorInitFlag;
+osEventFlagsId_t prechargeFlag;
 osEventFlagsId_t adcFlag;
 
 volatile uint8_t guiCommand = 0;
@@ -188,11 +189,12 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
-	sensorMutex      = osMutexNew(NULL);
-	i2cMutex         = osMutexNew(NULL);
+	sensorMutex       = osMutexNew(NULL);
+	i2cMutex          = osMutexNew(NULL);
 	GUIConnectionFlag = osEventFlagsNew(NULL);
-	sensorInitFlag   = osEventFlagsNew(NULL);
-	adcFlag          = osEventFlagsNew(NULL);
+	sensorInitFlag    = osEventFlagsNew(NULL);
+	prechargeFlag     = osEventFlagsNew(NULL);
+	adcFlag           = osEventFlagsNew(NULL);
   /* USER CODE END RTOS_MUTEX */
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -508,12 +510,14 @@ void StartCommandTask(void *argument)
 				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
 				fsm.currentState = INIT;
 				osEventFlagsClear(sensorInitFlag, SENSOR_INIT_DONE);
+				osEventFlagsClear(prechargeFlag, PRECHARGE_DONE);
 				break;
 			case 3:
 				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
+				osEventFlagsClear(prechargeFlag, PRECHARGE_DONE);
 				if (!flags & !SENSOR_INIT_DONE) {
 					fsm.currentState = FAULT;
-					// TODO: somehow tell gui need INIT next hehe
+					// TODO: somehow tell gui need INIT next hehe ask leslie later
 					break;
 				}
 				fsm.currentState = LOAD;
@@ -524,7 +528,10 @@ void StartCommandTask(void *argument)
 					fsm.currentState = FAULT;
 					break;
 				}
-				// TODO: check if V/I has stablized
+				if (!flags & !PRECHARGE_DONE) {
+					fsm.currentState = FAULT;
+					break;
+				}
 				fsm.currentState = START;
 				break;
 			case 5:
@@ -633,6 +640,8 @@ void StartFSMTask(void *argument)
 					fsm.currentState = FAULT;
 					fsm.stateEntry = 1;
 					break;
+				} else {
+					osEventFlagsSet(prechargeFlag, PRECHARGE_DONE);
 				}
 				printf(">PRECHARGE\r\n");
 				break;

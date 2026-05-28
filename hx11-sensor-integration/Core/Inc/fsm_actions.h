@@ -33,6 +33,7 @@
 #define GUI_CONNECTED (1 << 0)
 #define ADC_READY_FLAG (1 << 0)
 #define SENSOR_INIT_DONE (1 << 0)
+#define PRECHARGE_DONE (1 << 0)
 #define THERMISTOR_COUNT 8
 
 extern FSM_t fsm;
