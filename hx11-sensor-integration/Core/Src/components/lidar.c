@@ -7,7 +7,6 @@
 #include "lidar.h"
 
 I2C_HandleTypeDef *LIDAR_I2C_Handler;
-static uint32_t m_distance;
 uint8_t lidar_cmd = 0x04;
 
 void lidar_init(I2C_HandleTypeDef *hi2c)

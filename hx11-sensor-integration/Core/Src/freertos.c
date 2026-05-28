@@ -126,10 +126,10 @@ const osThreadAttr_t thermistorsTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal1,
 };
-/* Definitions for INATask */
-osThreadId_t INATaskHandle;
-const osThreadAttr_t INATask_attributes = {
-  .name = "INATask",
+/* Definitions for INA219Task */
+osThreadId_t INA219TaskHandle;
+const osThreadAttr_t INA219Task_attributes = {
+  .name = "INA219Task",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal3,
 };
@@ -161,6 +161,13 @@ const osThreadAttr_t CANTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityNormal4,
 };
+/* Definitions for INA260Task */
+osThreadId_t INA260TaskHandle;
+const osThreadAttr_t INA260Task_attributes = {
+  .name = "INA260Task",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
@@ -170,11 +177,12 @@ const osThreadAttr_t CANTask_attributes = {
 void StartLidarTask(void *argument);
 void StartMPUTask(void *argument);
 void StartThermistorsTask(void *argument);
-void StartINATask(void *argument);
+void StartINA219Task(void *argument);
 void StartTelemetryTask(void *argument);
 void StartCommandTask(void *argument);
 void StartFSMTask(void *argument);
 void StartCANTask(void *argument);
+void StartINA260Task(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -219,8 +227,8 @@ void MX_FREERTOS_Init(void) {
   /* creation of thermistorsTask */
   thermistorsTaskHandle = osThreadNew(StartThermistorsTask, NULL, &thermistorsTask_attributes);
 
-  /* creation of INATask */
-  INATaskHandle = osThreadNew(StartINATask, NULL, &INATask_attributes);
+  /* creation of INA219Task */
+  INA219TaskHandle = osThreadNew(StartINA219Task, NULL, &INA219Task_attributes);
 
   /* creation of telemetryTask */
   telemetryTaskHandle = osThreadNew(StartTelemetryTask, NULL, &telemetryTask_attributes);
@@ -233,6 +241,9 @@ void MX_FREERTOS_Init(void) {
 
   /* creation of CANTask */
   CANTaskHandle = osThreadNew(StartCANTask, NULL, &CANTask_attributes);
+
+  /* creation of INA260Task */
+  INA260TaskHandle = osThreadNew(StartINA260Task, NULL, &INA260Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -383,47 +394,45 @@ void StartThermistorsTask(void *argument)
   /* USER CODE END StartThermistorsTask */
 }
 
-/* USER CODE BEGIN Header_StartINATask */
+/* USER CODE BEGIN Header_StartINA219Task */
 /**
-* @brief Function implementing the INATask thread.
+* @brief Function implementing the INA219Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartINATask */
-void StartINATask(void *argument)
+/* USER CODE END Header_StartINA219Task */
+void StartINA219Task(void *argument)
 {
-  /* USER CODE BEGIN StartINATask */
-	  /* USER CODE BEGIN StartINATask */
-	printf("INA Waiting\r\n");
+  /* USER CODE BEGIN StartINA219Task */
+  /* Infinite loop */
 	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 	uint16_t up_curr, down_curr;
 	float up_psi, down_psi;
 
-	  /* Infinite loop */
-	  for(;;)
-	  {
-		  osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
-		  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+  for(;;)
+  {
+	  osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 
-		  osMutexAcquire(i2cMutex, osWaitForever);
-		  up_curr = INA219_ReadCurrent(&ina219_upstream);
-		  up_psi = INA219_ConvToPSI(3, 13, up_curr, 3000);
-		  osMutexRelease(i2cMutex);
+	  osMutexAcquire(i2cMutex, osWaitForever);
+	  up_curr = INA219_ReadCurrent(&ina219_upstream);
+	  up_psi = INA219_ConvToPSI(3, 13, up_curr, 3000);
+	  osMutexRelease(i2cMutex);
 
-		  osMutexAcquire(i2cMutex, osWaitForever);
-		  down_curr = INA219_ReadCurrent(&ina219_downstream);
-		  down_psi = INA219_ConvToPSI(4, 11, down_curr, 145);
-		  osMutexRelease(i2cMutex);
+	  osMutexAcquire(i2cMutex, osWaitForever);
+	  down_curr = INA219_ReadCurrent(&ina219_downstream);
+	  down_psi = INA219_ConvToPSI(4, 11, down_curr, 145);
+	  osMutexRelease(i2cMutex);
 
-		  osMutexAcquire(sensorMutex, osWaitForever);
-		  sensorData.pt_up = up_psi;
-		  sensorData.pt_down = down_psi;
-		  osMutexRelease(sensorMutex);
+	  osMutexAcquire(sensorMutex, osWaitForever);
+	  sensorData.pt_up = up_psi;
+	  sensorData.pt_down = down_psi;
+	  osMutexRelease(sensorMutex);
 
-		  osDelay(200);
-	  }
-  /* USER CODE END StartINATask */
+	  osDelay(200);
+  }
+  /* USER CODE END StartINA219Task */
 }
 
 /* USER CODE BEGIN Header_StartTelemetryTask */
@@ -479,6 +488,7 @@ void StartCommandTask(void *argument)
 	const char *cmdNames[] = {
 		"NONE", "GUI_OK", "INIT", "LOAD", "START", "STOP", "FAULT"
 	};
+	uint32_t flags;
 
 	for(;;)
 	{
@@ -515,6 +525,7 @@ void StartCommandTask(void *argument)
 			case 3:
 				osEventFlagsSet(GUIConnectionFlag, GUI_CONNECTED);
 				osEventFlagsClear(prechargeFlag, PRECHARGE_DONE);
+				flags = osEventFlagsGet(sensorInitFlag);
 				if (!flags & !SENSOR_INIT_DONE) {
 					fsm.currentState = FAULT;
 					// TODO: somehow tell gui need INIT next hehe ask leslie later
@@ -528,6 +539,7 @@ void StartCommandTask(void *argument)
 					fsm.currentState = FAULT;
 					break;
 				}
+				flags = osEventFlagsGet(prechargeFlag);
 				if (!flags & !PRECHARGE_DONE) {
 					fsm.currentState = FAULT;
 					break;
@@ -586,7 +598,7 @@ void StartFSMTask(void *argument)
 		if (!flags & !GUI_CONNECTED) {
 			/* If the GUI is not connected, ensure the pod is stopped. */
 			fsm.currentState = NONE;
-			int ok = stop_actions();
+			stop_actions();
 			printf("GUI Not Connected");
 			continue;
 		}
@@ -607,6 +619,7 @@ void StartFSMTask(void *argument)
 		}
 
 		// CHANGE STATES ON ENTRY
+		int ok = 0;
 		if (fsm.stateEntry == 1) {
 			fsm.stateEntry = 0;
 			switch (fsm.currentState) {
@@ -633,7 +646,7 @@ void StartFSMTask(void *argument)
 				printf(">LOAD\r\n");
 				break;
 			case PRECHARGE:
-				int ok = precharge_actions();
+				ok = precharge_actions();
 				if (!ok) {
 					printf(">PRECHARGE Problem\r\n");
 					fsm.previousState = fsm.currentState;
@@ -646,7 +659,7 @@ void StartFSMTask(void *argument)
 				printf(">PRECHARGE\r\n");
 				break;
 			case START:
-				int ok = start_actions();
+				ok = start_actions();
 				if (!ok) {
 					printf(">START Problem\r\n");
 					fsm.previousState = fsm.currentState;
@@ -721,6 +734,24 @@ void StartCANTask(void *argument)
 	osDelay(10);
   }
   /* USER CODE END StartCANTask */
+}
+
+/* USER CODE BEGIN Header_StartINA260Task */
+/**
+* @brief Function implementing the INA260Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartINA260Task */
+void StartINA260Task(void *argument)
+{
+  /* USER CODE BEGIN StartINA260Task */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartINA260Task */
 }
 
 /* Private application code --------------------------------------------------*/

@@ -145,8 +145,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-//	  debug0 = 10;
-//	  process_CAN250_msgs(&vfdData, &bmsData);
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
