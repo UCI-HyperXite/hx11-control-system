@@ -87,23 +87,22 @@ float INA219_ReadCurrent(INA219_t *ina219)
 }
 
 /*
- *@brief:		Convert 4-20mA current signal to PSI. 4ma = 0, 20mA = full scale
- *@param:		current_mA - current in mA
+ *@brief:		Convert >=4mA current signal to PSI. 4ma = 0, full scale should be measured
+ *@param:		min - mA for 0 PSI. Upstream fluctuates between 3-4, downstream is 4.
+ *@param:		max - mA for max desired PSI. Between 11-13, adjust as needed.
+ *@param:		current_mA - measured output current from pressure transducer.
  *@param:		fullScale_PSI - max PSI of pressure transducer. Different ranges for
  *				upstream and downstream PTs given by Braking subteam.
  *@return:		Pressure in PSI as a float. Return -1 if below 0 PSI (sensor fault)
  */
-float INA219_ConvToPSI(float current_mA, float fullScalePSI)
+float INA219_ConvToPSI(float min, float max, float current_mA, float fullScalePSI)
 {
-	const float I_MIN = 4.0f;
-	const float I_MAX = 20.0f;
-	const float I_SPAN = I_MAX - I_MIN;
-
-	float psi = ((current_mA - I_MIN) / I_SPAN) * fullScalePSI;
+	const float I_SPAN = max - min;
+	float psi = ((current_mA - min) / I_SPAN) * fullScalePSI;
 	if (psi < 0.0f) psi = -1.0f;
-
 	return psi;
 }
+
 /*
  * @brief: 		This function will read the shunt voltage level.
  * @param:		Pointer to the device object that was made from the struct. EX:  (&ina219)

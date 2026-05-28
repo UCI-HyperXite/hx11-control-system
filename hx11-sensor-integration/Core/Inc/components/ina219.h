@@ -92,7 +92,7 @@ int INA219_GetDeltaTime_ms(INA219_t *ina219);
 uint8_t INA219_Init(INA219_t *ina219, I2C_HandleTypeDef *i2c, uint8_t Address);
 uint16_t INA219_ReadBusVoltage(INA219_t *ina219);
 float INA219_ReadCurrent(INA219_t *ina219);
-float INA219_ConvToPSI(float current_mA, float fullScalePSI);
+float INA219_ConvToPSI(float min, float max, float current_mA, float fullScalePSI);
 int16_t INA219_ReadCurrent_raw(INA219_t *ina219);
 float INA219_ReadShuntVoltage(INA219_t *ina219);
 uint16_t INA219_ReadPower(INA219_t *ina219);

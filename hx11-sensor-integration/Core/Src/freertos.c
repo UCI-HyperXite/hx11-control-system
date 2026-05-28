@@ -410,7 +410,8 @@ void StartINATask(void *argument)
 	osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
 	osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
 	SensorData *data = (SensorData *)argument;
-	uint16_t current_up, current_down;
+	uint16_t up_curr, down_curr;
+	float up_psi, down_psi;
 
 	  /* Infinite loop */
 	  for(;;)
@@ -420,21 +421,21 @@ void StartINATask(void *argument)
 
 //		  printf("INA Running\r\n");
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  current_up = 1;
-		  current_up = INA219_ReadCurrent(&ina219_upstream);  //TODO: UPDATE CURRENT_UP
+		  up_curr = INA219_ReadCurrent(&ina219_upstream);
+		  up_psi = INA219_ConvToPSI(3, 13, up_curr, 3000);
 		  osMutexRelease(i2cMutex);
 
 		  osMutexAcquire(i2cMutex, osWaitForever);
-		  current_down = 2;
-		  current_down = INA219_ReadCurrent(&ina219_downstream);  //TODO: UPDATE CURRENT_DOWN
+		  down_curr = INA219_ReadCurrent(&ina219_downstream);
+		  down_psi = INA219_ConvToPSI(4, 11, down_curr, 145);
 		  osMutexRelease(i2cMutex);
 		  /* END */
 
 		  osMutexAcquire(sensorMutex, osWaitForever);
-		  sensorData.pt_up = current_up;
-		  sensorData.pt_down = current_down;
-		  data->pt_up = current_up;
-		  data->pt_down = current_down;
+		  sensorData.pt_up = up_psi;
+		  sensorData.pt_down = down_psi;
+		  data->pt_up = up_psi;
+		  data->pt_down = down_psi;
 		  osMutexRelease(sensorMutex);
 
 		  osDelay(200);
