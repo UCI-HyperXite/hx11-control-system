@@ -69,26 +69,19 @@ extern volatile uint8_t firstConversionComplete;
 void init_sensors(void);
 
 /**
- * @brief Run the pre-run checklist and populate the global preRun struct.
- * @param data  Pointer to the shared SensorData packet.
- */
-void pre_run_checklist(SensorData *data);
-
-/**
  * @brief Check all live fault conditions against current sensor data.
  * @param data  Pointer to the shared SensorData packet.
  * @return true if any fault condition is detected.
  */
-bool fault_conditions(SensorData *data);
+bool fault_conditions();
 
 /* State entry actions — called once on entry to each FSM state */
-void init_actions(SensorData *data);
-void load_actions(SensorData *data);
-void precharge_actions(SensorData *data);
-void start_actions(SensorData *data);
-void stop_actions(SensorData *data);
-void fault_actions(SensorData *data);
-void halt_actions(SensorData *data);
+void init_actions();
+void load_actions();
+int precharge_actions();
+int start_actions();
+void stop_actions();
+void fault_actions();
 
 /**
  * @brief Zero out a SensorData packet and reset all fields to safe defaults.

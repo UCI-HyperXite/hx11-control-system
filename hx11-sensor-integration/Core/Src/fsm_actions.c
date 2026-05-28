@@ -159,7 +159,7 @@ void init_sensors(void) {
 }
 
 
-bool fault_conditions(SensorData *data) {
+bool fault_conditions() {
 	/*
 	 * Returns true when encountering a fault condition
 	 */
@@ -200,47 +200,53 @@ bool fault_conditions(SensorData *data) {
 	return 0;
 }
 
-void init_actions(SensorData *data) {
+void init_actions() {
 	init_sensors();
 	solid_color(70, 0, 30); //pink
     HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); // brakes close
     printf("INIT complete -- waiting for transition\r\n");
 }
 
-void load_actions(SensorData *data) {
+void load_actions() {
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_RESET); //brakes open
     // TODO: HV OFF
 //    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
     printf("LOAD complete -- waiting for transition\r\n");
 }
 
-void precharge_actions(SensorData *data) {
+int precharge_actions() {
 	solid_color(0, 40, 70); //blue
+	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
+	    return 0;
+	}
 
 	// TODO: turn on HV sequence
 	printf("PRECHARGE complete -- waiting for transition\r\n");
+	return 1;
 }
 
-void start_actions(SensorData *data) {
+int start_actions() {
 	solid_color(0, 70, 0); //green
+	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
+	    return 0;
+	}
 
-	//brakes are open
 	//	TODO: StartVFD_LIM();
 	printf("START complete -- waiting for transition\r\n");
+	return 1;
 }
 
 
-void stop_actions(SensorData *data) {
+void stop_actions() {
 	solid_color(70, 0, 0); //red
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	//	TODO: SetHVPower(OFF);
 	printf("STOP complete -- waiting for transition\r\n");
 }
 
-void fault_actions(SensorData *data) {
+void fault_actions() {
 	solid_color(40, 0, 70); //purple
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
-	// TODO: EmergencyRelayCutoff();
 	printf("FAULT complete -- waiting for transition\r\n");
 }
 

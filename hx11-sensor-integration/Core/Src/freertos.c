@@ -579,7 +579,7 @@ void StartFSMTask(void *argument)
 		if (!flags & !GUI_CONNECTED) {
 			/* If the GUI is not connected, ensure the pod is stopped. */
 			fsm.currentState = NONE;
-			stop_actions();
+			int ok = stop_actions();
 			printf("GUI Not Connected");
 			continue;
 		}
@@ -591,7 +591,7 @@ void StartFSMTask(void *argument)
 		if (flags & SENSOR_INIT_DONE) {
 			// If sensors are initialized, check fault conditions
 			if (fsm.currentState != FAULT) {
-				bool fault_found = fault_conditions(&sensorData);
+				bool fault_found = fault_conditions();
 				if (fault_found) {
 					fsm.currentState = FAULT;
 					fsm.stateEntry = 1;
@@ -615,30 +615,44 @@ void StartFSMTask(void *argument)
 				printf(">GUI_OK\r\n");
 				break;
 			case INIT:
-				init_actions(&sensorData);
+				init_actions();
 				printf(">INIT\r\n");
 				break;
 			case LOAD:
-				load_actions(&sensorData);
+				load_actions();
 				fsm.previousState = fsm.currentState;
 				fsm.currentState = PRECHARGE;
 				fsm.stateEntry = 1;
 				printf(">LOAD\r\n");
 				break;
 			case PRECHARGE:
-				precharge_actions(&sensorData);
+				int ok = precharge_actions();
+				if (!ok) {
+					printf(">PRECHARGE Problem\r\n");
+					fsm.previousState = fsm.currentState;
+					fsm.currentState = FAULT;
+					fsm.stateEntry = 1;
+					break;
+				}
 				printf(">PRECHARGE\r\n");
 				break;
 			case START:
-				start_actions(&sensorData);
+				int ok = start_actions();
+				if (!ok) {
+					printf(">START Problem\r\n");
+					fsm.previousState = fsm.currentState;
+					fsm.currentState = FAULT;
+					fsm.stateEntry = 1;
+					break;
+				}
 				printf(">START\r\n");
 				break;
 			case STOP:
-				stop_actions(&sensorData);
+				stop_actions();
 				printf(">STOP\r\n");
 				break;
 			case FAULT:
-				fault_actions(&sensorData);
+				fault_actions();
 				printf(">FAULT\r\n");
 				break;
 			}
