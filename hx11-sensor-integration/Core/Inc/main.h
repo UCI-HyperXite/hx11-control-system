@@ -62,6 +62,9 @@ void Error_Handler(void);
 #define Brake_Pin GPIO_PIN_8
 #define Brake_GPIO_Port GPIOB
 
+#define HV_Pin GPIO_PIN_6
+#define HV_GPIO_Port GPIOC
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

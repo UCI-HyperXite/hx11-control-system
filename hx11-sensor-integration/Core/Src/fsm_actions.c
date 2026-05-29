@@ -223,6 +223,7 @@ int precharge_actions() {
 	}
 
 	// TODO: turn on HV sequence
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_SET);
 	printf("PRECHARGE complete -- waiting for transition\r\n");
 	return 1;
 }
@@ -243,6 +244,7 @@ void stop_actions() {
 	solid_color(70, 0, 0); //red
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	//	TODO: SetHVPower(OFF);
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET);
 	printf("STOP complete -- waiting for transition\r\n");
 }
 
