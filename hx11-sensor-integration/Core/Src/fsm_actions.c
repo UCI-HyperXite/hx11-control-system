@@ -4,6 +4,7 @@
  */
 
 #include "fsm_actions.h"
+#include "throttleDriver.h"
 
 
 void init_sensors(void) {
@@ -214,13 +215,13 @@ void init_actions() {
 	init_sensors();
 	solid_color(70, 0, 30); //pink
     HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); // brakes close
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
     printf("INIT complete -- waiting for transition\r\n");
 }
 
 void load_actions() {
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_RESET); //brakes open
-    // TODO: HV OFF
-//    HAL_GPIO_WritePin(GPIOX, HV_ENABLE_PIN, GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
     printf("LOAD complete -- waiting for transition\r\n");
 }
 
@@ -229,9 +230,11 @@ int precharge_actions() {
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
 	    return 0;
 	}
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_SET); // HV ON
+	osDelay(50);
+	DAC_SetValue(25);
+	osDelay(50);
 
-	// TODO: turn on HV sequence
-	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_SET);
 	printf("PRECHARGE complete -- waiting for transition\r\n");
 	return 1;
 }
@@ -241,8 +244,7 @@ int start_actions() {
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
 	    return 0;
 	}
-
-	//	TODO: StartVFD_LIM();
+	DAC_SetValue(410);
 	printf("START complete -- waiting for transition\r\n");
 	return 1;
 }
@@ -251,8 +253,8 @@ int start_actions() {
 void stop_actions() {
 	solid_color(70, 0, 0); //red
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
-	//	TODO: SetHVPower(OFF);
-	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET);
+	DAC_SetValue(25);
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET);  // HV OFF
 	printf("STOP complete -- waiting for transition\r\n");
 }
 
@@ -260,6 +262,8 @@ void fault_actions() {
 	solid_color(40, 0, 70); //purple
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	printf("FAULT complete -- waiting for transition\r\n");
+	DAC_SetValue(25);
+	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
 }
 
 void ClearSensorData(SensorData *s)

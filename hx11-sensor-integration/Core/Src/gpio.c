@@ -64,7 +64,7 @@ void MX_GPIO_Init(void)
 
 
   /*Configure GPIO pin : PC6 */
-  HAL_GPIO_WritePin(HV_GPIO_Port, HV_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(HV_GPIO_Port, HV_Pin, GPIO_PIN_RESET); // HV off
 
   GPIO_InitStruct.Pin = HV_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
