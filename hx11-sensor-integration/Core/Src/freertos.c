@@ -69,6 +69,8 @@ osEventFlagsId_t adcFlag;
 
 volatile uint8_t guiCommand = 0;
 
+ina260_t *lv_pow;
+
 INA219_t ina219_upstream;
 INA219_t ina219_downstream;
 uint32_t object_distance;
@@ -749,7 +751,21 @@ void StartINA260Task(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	  osEventFlagsWait(GUIConnectionFlag, GUI_CONNECTED, osFlagsWaitAll | osFlagsNoClear, osWaitForever);
+	  osEventFlagsWait(sensorInitFlag, SENSOR_INIT_DONE, osFlagsNoClear, osWaitForever);
+
+	  float voltage = 0.0f;
+	  osMutexAcquire(i2cMutex, osWaitForever);
+	  ina260_status_t status = ina260_get_voltage(lv_pow, &voltage);
+	  osMutexRelease(i2cMutex);
+
+	  if (status == HAL_OK) {
+	      osMutexAcquire(sensorMutex, osWaitForever);
+	      sensorData.lv_batt = voltage;
+	      osMutexRelease(sensorMutex);
+	  }
+
+	  osDelay(200);
   }
   /* USER CODE END StartINA260Task */
 }

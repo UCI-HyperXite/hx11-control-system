@@ -98,7 +98,7 @@ void init_sensors(void) {
 	printf("Finished LED initialization.\r\n");
 
 
-// INA
+// INA219
 	ina_up_ok = INA219_Init(&ina219_upstream, &hi2c1, INA219_ADDRESS_40);
 	if (!ina_up_ok) {
 	printf("WARNING: INA219 upstream (0x%02X) init failed\r\n", INA219_ADDRESS_40);
@@ -110,6 +110,14 @@ void init_sensors(void) {
 	}
 	printf("Finished INAs initialization.\r\n");
 
+// INA260
+	lv_pow = ina260_new(&hi2c1, 0x40);
+	if (lv_pow == NULL) {
+		// TODO: fail
+	}
+	if (ina260_wait_until_ready(lv_pow, 1000) != HAL_OK) {
+	    // TODO: fail
+	}
 
 // CAN -- BMS and VFD
 	// can line 1

@@ -17,6 +17,7 @@
 #include "MPU6050.h"
 #include "thermistor.h"
 #include "ina219.h"
+#include "ina260.h"
 #include "ws2812b.h"
 #include "lidar.h"
 #include "time_utils.h"
@@ -48,6 +49,9 @@ extern osEventFlagsId_t   GUIConnectionFlag;
 
 extern INA219_t ina219_upstream;
 extern INA219_t ina219_downstream;
+
+extern ina260_t *lv_pow;
+
 extern uint32_t object_distance;
 
 extern uint8_t lidar_ok;
