@@ -215,11 +215,11 @@ void none_actions() {
 	// TODO: Set None color??
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_SET) {
 		HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
-		return 0;
+//		return 0;
 	}
 	if (HAL_GPIO_ReadPin(GPIOC, HV_Pin) != GPIO_PIN_RESET) {
 		HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
-		return 0;
+//		return 0;
 	}
 }
 
@@ -244,7 +244,10 @@ int precharge_actions() {
 	}
 	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_SET); // HV ON
 	osDelay(50);
+
+	osMutexAcquire(i2cMutex, osWaitForever);
 	DAC_SetValue(25);
+	osMutexRelease(i2cMutex);
 	osDelay(50);
 
 	printf("PRECHARGE complete -- waiting for transition\r\n");
@@ -256,7 +259,9 @@ int start_actions() {
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
 	    return 0;
 	}
-	DAC_SetValue(410);
+	osMutexAcquire(i2cMutex, osWaitForever);
+//	DAC_SetValue(410);
+	osMutexRelease(i2cMutex);
 	printf("START complete -- waiting for transition\r\n");
 	return 1;
 }

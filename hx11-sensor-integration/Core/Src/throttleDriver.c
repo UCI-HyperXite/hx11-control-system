@@ -2,21 +2,6 @@
 
 //resources used: https://wiki.st.com/stm32mcu/wiki/Getting_started_with_DAC
 uint8_t dacBuffer[2];
-int count = 0;
-int sixseven;
-
-uint8_t rxBuf[2];
-
-// Step 1: Transmit
-
-// Step 2: In TX callback, trigger a read
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
-    HAL_I2C_Master_Receive_IT(hi2c, 0xC6, rxBuf, 2);
-}
-
-// Step 3: RX callback fires when response is received
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c) {
-}
 
 void DAC_SetValue(uint16_t val) {
 	//add some sort of RTOS check so buffer isn't overwritten by another call?
@@ -29,7 +14,6 @@ void DAC_SetValue(uint16_t val) {
 	//        lower 8 bits of value
 
 	HAL_I2C_Master_Transmit_IT(&hi2c1, 0xC6, dacBuffer, 2); // 0x63 << 1 = 0xC6
-	sixseven = 67;
 }
 
 void throttleTest() {

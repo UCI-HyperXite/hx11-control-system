@@ -53,7 +53,17 @@ void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(HV_GPIO_Port, HV_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(Brake_GPIO_Port, Brake_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin : HV_Pin */
+  GPIO_InitStruct.Pin = HV_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(HV_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Brake_Pin */
   GPIO_InitStruct.Pin = Brake_Pin;
@@ -61,16 +71,6 @@ void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Brake_GPIO_Port, &GPIO_InitStruct);
-
-
-  /*Configure GPIO pin : PC6 */
-  HAL_GPIO_WritePin(HV_GPIO_Port, HV_Pin, GPIO_PIN_RESET); // HV off
-
-  GPIO_InitStruct.Pin = HV_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(HV_GPIO_Port, &GPIO_InitStruct);
 
 }
 
