@@ -260,7 +260,7 @@ int start_actions() {
 	    return 0;
 	}
 	osMutexAcquire(i2cMutex, osWaitForever);
-//	DAC_SetValue(410);
+	DAC_SetValue(410); // throttle 10%
 	osMutexRelease(i2cMutex);
 	printf("START complete -- waiting for transition\r\n");
 	return 1;
