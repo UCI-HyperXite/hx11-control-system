@@ -211,6 +211,18 @@ bool fault_conditions() {
 	return 0;
 }
 
+void none_actions() {
+	// TODO: Set None color??
+	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_SET) {
+		HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
+		return 0;
+	}
+	if (HAL_GPIO_ReadPin(GPIOC, HV_Pin) != GPIO_PIN_RESET) {
+		HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
+		return 0;
+	}
+}
+
 void init_actions() {
 	init_sensors();
 	solid_color(70, 0, 30); //pink

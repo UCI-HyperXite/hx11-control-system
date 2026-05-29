@@ -80,6 +80,7 @@ void init_sensors(void);
 bool fault_conditions();
 
 /* State entry actions — called once on entry to each FSM state */
+void none_actions();
 void init_actions();
 void load_actions();
 int precharge_actions();

@@ -591,7 +591,7 @@ void StartFSMTask(void *argument)
 		if (!flags & !GUI_CONNECTED) {
 			/* If the GUI is not connected, ensure the pod is stopped. */
 			fsm.currentState = NONE;
-			stop_actions();
+//			none_actions();  // TODO: check this
 			printf("GUI Not Connected");
 			continue;
 		}
@@ -617,11 +617,10 @@ void StartFSMTask(void *argument)
 			fsm.stateEntry = 0;
 			switch (fsm.currentState) {
 			case NONE:
-				stop_actions();
+//				none_actions();  // TODO: check this
 				printf(">NONE\r\n");
 				break;
 			case GUI_OK:
-				stop_actions();
 				osMutexAcquire(sensorMutex, osWaitForever);
 				ClearSensorData(&sensorData);
 				osMutexRelease(sensorMutex);
