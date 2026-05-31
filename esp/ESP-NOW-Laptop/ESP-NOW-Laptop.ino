@@ -223,13 +223,15 @@ void setup() {
   esp_wifi_set_promiscuous(false);
 
 
+  esp_err_t initResult = ESP_FAIL;
   for (int i = 0; i < 3; i++) {
-    if (esp_now_init() == ESP_OK) break;
+    initResult = esp_now_init();
+    if (initResult == ESP_OK) break;
     delay(100);
   }
 
   // Init ESP-NOW
-  if (esp_now_init() != ESP_OK) {
+  if (initResult != ESP_OK) {
     Serial.println("Error initializing ESP-NOW. Restarting now.");
     ESP.restart();
   }
@@ -303,6 +305,5 @@ void loop() {
   if (sentESTOP != true && (millis()-lastHeartbeatESP) > timeoutMs) {
     Serial.println("{\"msg\":\"ESTOP2\"}");
     sentESTOP = true;
-    return;
   }
 }

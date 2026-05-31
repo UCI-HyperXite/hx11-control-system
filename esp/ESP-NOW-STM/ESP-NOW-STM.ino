@@ -80,6 +80,9 @@ unsigned long lastLoop = 0;
 
 bool stmTimedOut = false;
 bool espTimedOut = false;
+bool stmAlertSent = false;
+bool espAlertSent = false;
+
 
 /* 
   Function Definitions 
@@ -175,7 +178,7 @@ void setup() {
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
-    Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
+    // Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
     ESP.restart();
     return;
   }
@@ -197,7 +200,7 @@ void setup() {
   }
   if (esp_now_add_peer(&peerInfo) != ESP_OK) {
     Serial.println("Failed to add peer");
-    Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
+    // Serial2.write(-1);  // ERROR WITH ESP // FLASH ERROR LED LIGHTS
     ESP.restart();
     return;
   }
@@ -233,9 +236,10 @@ void loop() {
   if ((millis()-lastHeartbeatSTM) > timeoutMs) {
     // TODO: What to do when STM doesn't send anything
     // Cases: GUI not connected  || STM frozen || Telemetry task blocked
-    if (!stmTimedOut) {
-      stmTimedOut = true;
+    stmTimedOut = true;
+    if (!stmAlertSent) {
       Serial.println("STM32 TIMEOUT");
+      stmAlertSent = true;
 
       if (command != GUICommand::NONE) {
         SensorData eStopPacket = {};
@@ -246,16 +250,19 @@ void loop() {
     }
   } else {
     stmTimedOut = false;
+    stmAlertSent = false;
   }
 
   if ((millis()-lastHeartbeatESP) > timeoutMs) {
-    if (!espTimedOut) {
-      espTimedOut = true;
+    espTimedOut = true;
+    if (!espAlertSent) {
+      espAlertSent = true;
       Serial.println("ESP-NOW TIMEOUT");
       command = GUICommand::NONE;
       Serial2.write((uint8_t)command);
     }
   } else { 
     espTimedOut = false;
+    espAlertSent = false;
   }
 }
