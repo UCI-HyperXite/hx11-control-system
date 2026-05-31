@@ -14,7 +14,7 @@
 
 
 #define INA219_ADDRESS_40						(0x44)
-#define INA219_ADDRESS_41 						(0x41)
+#define INA219_ADDRESS_41 						(0x40)
 //
 //	Registers
 //

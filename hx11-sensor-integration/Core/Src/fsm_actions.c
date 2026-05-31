@@ -185,11 +185,16 @@ bool fault_conditions() {
 	}
 
 	// TODO: braking (pneumatics)
-	if (sensorData.pt_up >= 155 || sensorData.pt_down >= 155) {
+	if (sensorData.pt_down >= 150) {
 		printf("FAULT DETECTED! PNEUMATICS\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_up);
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_down);
 		return 1;
 	}
+//	if (sensorData.pt_down < 0 || sensorData.pt_up < 0) {
+//		printf("FAULT DETECTED! PNEUMATICS NOT CONNECTED\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_up);
+//		return 1;
+//	}
 
 	// LIM
 	for (int i = 0; i < THERMISTOR_COUNT; i++) {
