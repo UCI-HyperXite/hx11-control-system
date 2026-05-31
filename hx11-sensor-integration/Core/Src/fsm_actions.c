@@ -100,14 +100,14 @@ void init_sensors(void) {
 
 
 // INA219
-	ina_up_ok = INA219_Init(&ina219_upstream, &hi2c1, INA219_ADDRESS_40);
+	ina_up_ok = INA219_Init(&ina219_upstream, &hi2c1, INA219_ADDRESS_UPSTREAM);
 	if (!ina_up_ok) {
-	printf("WARNING: INA219 upstream (0x%02X) init failed\r\n", INA219_ADDRESS_40);
+	printf("WARNING: INA219 upstream (0x%02X) init failed\r\n", INA219_ADDRESS_UPSTREAM);
 	}
 
-	ina_down_ok = INA219_Init(&ina219_downstream, &hi2c1, INA219_ADDRESS_41);
+	ina_down_ok = INA219_Init(&ina219_downstream, &hi2c1, INA219_ADDRESS_DOWNSTREAM);
 	if (!ina_down_ok) {
-	printf("WARNING: INA219 DOWNSTREAM (0x%02X) init failed\r\n", INA219_ADDRESS_41);
+	printf("WARNING: INA219 DOWNSTREAM (0x%02X) init failed\r\n", INA219_ADDRESS_DOWNSTREAM);
 	}
 	printf("Finished INAs initialization.\r\n");
 
