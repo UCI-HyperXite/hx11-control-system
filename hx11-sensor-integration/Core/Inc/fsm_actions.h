@@ -36,6 +36,13 @@
 #define SENSOR_INIT_DONE (1 << 0)
 #define THERMISTOR_COUNT 8
 
+#define PINK 70, 0, 30
+#define BLUE 0, 40, 70
+#define GREEN 0, 70, 0
+#define RED 70, 0, 0
+#define PURPLE 40, 0, 70
+
+
 extern FSM_t fsm;
 extern SensorData sensorData;
 extern PreRunStatus preRun;

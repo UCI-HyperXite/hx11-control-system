@@ -23,6 +23,7 @@
 #include "dma.h"
 #include "fdcan.h"
 #include "i2c.h"
+#include "sdmmc.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
@@ -109,6 +110,7 @@ int main(void)
   MX_UART7_Init();
   MX_I2C1_Init();
   MX_FDCAN1_Init();
+  MX_SDMMC1_SD_Init();
   /* USER CODE BEGIN 2 */
   /* USER CODE END 2 */
 

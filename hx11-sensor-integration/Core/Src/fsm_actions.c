@@ -169,50 +169,103 @@ bool fault_conditions() {
 	 * Returns true when encountering a fault condition
 	 */
 	// TODO: FIX THIS ERROR CHECK
-	if (sensorData.roll >= 23.34) {
+	if (sensorData.roll >= 20.0f || sensorData.roll <= -20.0f) {
 		printf("FAULT DETECTED! Roll\r\n");
-		osMutexAcquire(sensorMutex, osWaitForever);
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Roll: %0.5f", sensorData.roll);
-		osMutexRelease(sensorMutex);
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Roll: %0.2f degrees", sensorData.roll);
 		return 1;
 	}
 
 	// TODO: FIX THIS ERROR CHECK
-	if (sensorData.pitch >= 23.34) {
+	if (sensorData.pitch >= 20.0f || sensorData.pitch <= -20.0f) {
 		printf("FAULT DETECTED! Pitch\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pitch: %0.5f", sensorData.pitch);
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Pitch: %0.2f degrees", sensorData.pitch);
 		return 1;
 	}
 
-	// TODO: braking (pneumatics)
 	if (sensorData.pt_down >= 150) {
-		printf("FAULT DETECTED! PNEUMATICS\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_down);
+		printf("FAULT DETECTED! PNEUMATICS DOWNSTREAM\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics downstream %0.5f", sensorData.pt_down);
 		return 1;
 	}
-//	if (sensorData.pt_down < 0 || sensorData.pt_up < 0) {
-//		printf("FAULT DETECTED! PNEUMATICS NOT CONNECTED\r\n");
-//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Pneumatics %0.5f", sensorData.pt_up);
-//		return 1;
-//	}
 
-	// LIM
+
+	if (sensorData.pt_down <= 0) {
+		printf("FAULT DETECTED! PNEUMATICS DOWNSTREAM NOT CONNECTED\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Pneumatics downstream %0.5f", sensorData.pt_down);
+		return 1;
+	}
+
+	if (sensorData.pt_up <= 0) {
+		printf("FAULT DETECTED! PNEUMATICS UPSTREAM NOT CONNECTED\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Pneumatics upstream %0.5f", sensorData.pt_up);
+		return 1;
+	}
+
 	for (int i = 0; i < THERMISTOR_COUNT; i++) {
 		if (sensorData.thermistors[i] >= 68) {
 			printf("FAULT DETECTED! Temperature\r\n");
-			snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! Temperature: %0.5f", sensorData.thermistors[i]);
+			snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Temperature: %0.5f", sensorData.thermistors[i]);
 			return 1;
 		}
 	}
 
 	if (sensorData.lidar_dist < 20) { //TODO: CHANGE THIS
 		printf("FAULT DETECTED! LIDAR\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT DETECTED! LIDAR: %lu", sensorData.lidar_dist);
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: LIDAR: %lu", sensorData.lidar_dist);
 		return 1;
 	}
 
-	// TODO: battery
+	// TODO: check battery
+	if (sensorData.pack_volt <= 0.0f) {
+		printf("FAULT DETECTED! BMS not connected\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack voltage not connected (%.2fV)", sensorData.pack_volt);
+		return 1;
+	}
+	if (sensorData.pack_volt < 60.0f) {
+		printf("FAULT DETECTED! BMS under voltage\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack under voltage (%.2fV)", sensorData.pack_volt);
+		return 1;
+	}
+	if (sensorData.pack_volt > 100.8f) {
+		printf("FAULT DETECTED! BMS over voltage\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack over voltage (%.2fV)", sensorData.pack_volt);
+		return 1;
+	}
+	if (sensorData.lowest_cell_volt < 2.8f) {
+		printf("FAULT DETECTED! BMS Cell under voltage\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell under voltage (%.2fV)", sensorData.lowest_cell_volt);
+		return 1;
+	}
+	if (sensorData.highest_cell_volt > 4.2f) {
+		printf("FAULT DETECTED! BMS cell over voltage\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell over voltage (%.2fV)", sensorData.highest_cell_volt);
+		return 1;
+	}
+	if (sensorData.pack_soc < 10.0f) {
+		printf("FAULT DETECTED! BMS cell over voltage\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery low SOC (%.1f%%)", sensorData.pack_soc);
+		return 1;
+	}
+	if (sensorData.highest_temp > 55.0f) {
+		printf("FAULT DETECTED! BMS battery temp too high\r\n");
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery temp (%.1fC)", sensorData.highest_temp);
+		return 1;
+	}
+
 	// TODO: powers
+	if (sensorData.error_code != 0) {
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: VFD error code %lu", sensorData.error_code);
+		return 1;
+	}
+	if (sensorData.motor_temp > 120.0f) {
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Motor temp (%1.fC)", sensorData.motor_temp);
+		return 1;
+	}
+	if (sensorData.controller_temp > 85.0f) {
+		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Controller temp (%1.fC)", sensorData.controller_temp);
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -220,30 +273,29 @@ void none_actions() {
 	// TODO: Set None color??
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_SET) {
 		HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
-//		return 0;
 	}
 	if (HAL_GPIO_ReadPin(GPIOC, HV_Pin) != GPIO_PIN_RESET) {
 		HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
-//		return 0;
 	}
 }
 
 void init_actions() {
 	init_sensors();
-	solid_color(70, 0, 30); //pink
+	solid_color(PINK);
     HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); // brakes close
 	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
     printf("INIT complete -- waiting for transition\r\n");
 }
 
 void load_actions() {
+	solid_color(BLUE);
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_RESET); //brakes open
 	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET); // HV OFF
     printf("LOAD complete -- waiting for transition\r\n");
 }
 
 int precharge_actions() {
-	solid_color(0, 40, 70); //blue
+//	solid_color(BLUE);
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
 	    return 0;
 	}
@@ -260,7 +312,7 @@ int precharge_actions() {
 }
 
 int start_actions() {
-	solid_color(0, 70, 0); //green
+	solid_color(GREEN);
 	if (HAL_GPIO_ReadPin(GPIOB, Brake_Pin) != GPIO_PIN_RESET) {
 	    return 0;
 	}
@@ -273,7 +325,7 @@ int start_actions() {
 
 
 void stop_actions() {
-	solid_color(70, 0, 0); //red
+	solid_color(RED);
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	DAC_SetValue(25);
 	HAL_GPIO_WritePin(GPIOC, HV_Pin, GPIO_PIN_RESET);  // HV OFF
@@ -281,7 +333,7 @@ void stop_actions() {
 }
 
 void fault_actions() {
-	solid_color(40, 0, 70); //purple
+	solid_color(PURPLE);
 	HAL_GPIO_WritePin(GPIOB, Brake_Pin, GPIO_PIN_SET); //brakes close
 	printf("FAULT complete -- waiting for transition\r\n");
 	DAC_SetValue(25);

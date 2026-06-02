@@ -341,9 +341,13 @@ void StartMPUTask(void *argument)
 		  float gx = MPU6050.gyro_x - gyro_x_bias;
 		  float gy = MPU6050.gyro_y - gyro_y_bias;
 
+		  float dt = 0.020f; // 20ms loop delay
+
 		  osMutexAcquire(sensorMutex, osWaitForever);
 		  sensorData.roll = gx;
 		  sensorData.pitch = gy;
+//		  sensorData.roll  += gx * dt;
+//		  sensorData.pitch += gy * dt;
 		  osMutexRelease(sensorMutex);
 		}
 		osDelay(20);
@@ -591,7 +595,7 @@ void StartFSMTask(void *argument)
 		if (!flags & !GUI_CONNECTED) {
 			/* If the GUI is not connected, ensure the pod is stopped. */
 			fsm.currentState = NONE;
-//			none_actions();  // TODO: check this
+			none_actions();
 			printf("GUI Not Connected");
 			continue;
 		}
@@ -617,7 +621,7 @@ void StartFSMTask(void *argument)
 			fsm.stateEntry = 0;
 			switch (fsm.currentState) {
 			case NONE:
-//				none_actions();  // TODO: check this
+				none_actions();
 				printf(">NONE\r\n");
 				break;
 			case GUI_OK:
