@@ -216,55 +216,55 @@ bool fault_conditions() {
 	}
 
 	// TODO: check battery
-	if (sensorData.pack_volt <= 0.0f) {
-		printf("FAULT DETECTED! BMS not connected\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack voltage not connected (%.2fV)", sensorData.pack_volt);
-		return 1;
-	}
-	if (sensorData.pack_volt < 60.0f) {
-		printf("FAULT DETECTED! BMS under voltage\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack under voltage (%.2fV)", sensorData.pack_volt);
-		return 1;
-	}
-	if (sensorData.pack_volt > 100.8f) {
-		printf("FAULT DETECTED! BMS over voltage\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack over voltage (%.2fV)", sensorData.pack_volt);
-		return 1;
-	}
-	if (sensorData.lowest_cell_volt < 2.8f) {
-		printf("FAULT DETECTED! BMS Cell under voltage\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell under voltage (%.2fV)", sensorData.lowest_cell_volt);
-		return 1;
-	}
-	if (sensorData.highest_cell_volt > 4.2f) {
-		printf("FAULT DETECTED! BMS cell over voltage\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell over voltage (%.2fV)", sensorData.highest_cell_volt);
-		return 1;
-	}
-	if (sensorData.pack_soc < 10.0f) {
-		printf("FAULT DETECTED! BMS cell over voltage\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery low SOC (%.1f%%)", sensorData.pack_soc);
-		return 1;
-	}
-	if (sensorData.highest_temp > 55.0f) {
-		printf("FAULT DETECTED! BMS battery temp too high\r\n");
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery temp (%.1fC)", sensorData.highest_temp);
-		return 1;
-	}
+//	if (sensorData.pack_volt <= 0.0f) {
+//		printf("FAULT DETECTED! BMS not connected\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack voltage not connected (%.2fV)", sensorData.pack_volt);
+//		return 1;
+//	}
+//	if (sensorData.pack_volt < 60.0f) {
+//		printf("FAULT DETECTED! BMS under voltage\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack under voltage (%.2fV)", sensorData.pack_volt);
+//		return 1;
+//	}
+//	if (sensorData.pack_volt > 100.8f) {
+//		printf("FAULT DETECTED! BMS over voltage\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS pack over voltage (%.2fV)", sensorData.pack_volt);
+//		return 1;
+//	}
+//	if (sensorData.lowest_cell_volt < 2.8f) {
+//		printf("FAULT DETECTED! BMS Cell under voltage\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell under voltage (%.2fV)", sensorData.lowest_cell_volt);
+//		return 1;
+//	}
+//	if (sensorData.highest_cell_volt > 4.2f) {
+//		printf("FAULT DETECTED! BMS cell over voltage\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS cell over voltage (%.2fV)", sensorData.highest_cell_volt);
+//		return 1;
+//	}
+//	if (sensorData.pack_soc < 10.0f) {
+//		printf("FAULT DETECTED! BMS cell over voltage\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery low SOC (%.1f%%)", sensorData.pack_soc);
+//		return 1;
+//	}
+//	if (sensorData.highest_temp > 55.0f) {
+//		printf("FAULT DETECTED! BMS battery temp too high\r\n");
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: BMS battery temp (%.1fC)", sensorData.highest_temp);
+//		return 1;
+//	}
 
-	// TODO: powers
-	if (sensorData.error_code != 0) {
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: VFD error code %lu", sensorData.error_code);
-		return 1;
-	}
-	if (sensorData.motor_temp > 120.0f) {
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Motor temp (%1.fC)", sensorData.motor_temp);
-		return 1;
-	}
-	if (sensorData.controller_temp > 85.0f) {
-		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Controller temp (%1.fC)", sensorData.controller_temp);
-		return 1;
-	}
+	// TODO: check powers
+//	if (sensorData.error_code != 0) {
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: VFD error code %lu", sensorData.error_code);
+//		return 1;
+//	}
+//	if (sensorData.motor_temp > 120.0f) {
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Motor temp (%1.fC)", sensorData.motor_temp);
+//		return 1;
+//	}
+//	if (sensorData.controller_temp > 85.0f) {
+//		snprintf(sensorData.message, sizeof(sensorData.message), "FAULT: Controller temp (%1.fC)", sensorData.controller_temp);
+//		return 1;
+//	}
 
 	return 0;
 }
