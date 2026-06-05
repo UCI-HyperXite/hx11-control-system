@@ -53,7 +53,7 @@ typedef struct __attribute__((packed)) SensorData {
 	highest_temp,
 	pack_volt,
 	lowest_temp;
-  currentDraw;
+  current_draw;
 
 	uint8_t dis_en_status;
          
@@ -77,7 +77,7 @@ GUICommand command = GUICommand::NONE;
 
 unsigned long lastHeartbeatESP = 0;
 unsigned long lastSendTime = 0;
-const unsigned long timeoutMs = 2000;
+const unsigned long timeoutMs = 15000;
 unsigned long lastLoop = 0;
 
 bool sentESTOP = false;
