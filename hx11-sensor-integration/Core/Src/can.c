@@ -66,6 +66,8 @@ void process_CAN250_msgs(VFD_CAN_Data *vfdData, BMS_CAN_Data *bmsData) {
 			bmsData->packVoltage = concatenate(currentMessage.data[1], currentMessage.data[2]);
 			bmsData->lowestTemp = currentMessage.data[3];
 			break;
+		case 0x10DEADBC:
+			bmsData->currentDraw = currentMessage.data[0];
 		default:
 			break;
 		}

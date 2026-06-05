@@ -64,6 +64,7 @@ typedef struct{
 	*/
 	double packVoltage; //2 bytes, [0.1V]
 	double lowestTemp; //signed [1C]
+	double currentDraw;
 }BMS_CAN_Data;
 
 extern BMS_CAN_Data bmsData;
