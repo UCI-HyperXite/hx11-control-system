@@ -263,6 +263,7 @@ export function TopRow({ telemetry, consoleLogs = [] }) {
 									["Relay Status:", telemetry.relayStatus, ""],
 									["Pack Voltage:", telemetry.packVoltage, "V"],
 									["Lowest Temp:", telemetry.lowestTemp, "°C"],
+									["Current Draw:", telemetry.currentDraw, ""],
 									["Discharge Enable Status:", telemetry.dischargeEnableStatus, ""],
 									
 									//BMS

@@ -224,8 +224,9 @@ export default function App() {
 							relayStatus: data.relay_status ?? prev.relayStatus,
 							packVoltage: data.pack_volt ?? prev.packVoltage,
 							lowestTemp: data.lowest_temp ?? prev.lowestTemp,
+							currentDraw: data.current_draw ?? prev.currentDraw,
 
-							dischargeEnableStatus: data.dischargeEnableStatus ?? prev.dischargeEnableStatus,
+							dischargeEnableStatus: data.dis_en_status ?? prev.dischargeEnableStatus,
 
 							// //IMD
 							// insulationResistance: data.insulationResistance ?? prev.insulationResistance,
