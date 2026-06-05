@@ -372,6 +372,7 @@ void ClearSensorData(SensorData *s)
     s->highest_temp = 0;
     s->pack_volt = 0;
     s->lowest_temp = 0;
+    s->current_draw = 0;
     s->relay_status = 0;
     s->bms_test_counter = 0;
 

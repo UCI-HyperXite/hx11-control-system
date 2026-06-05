@@ -34,7 +34,9 @@ typedef struct __attribute__((packed)) {
 	pack_soc,
 	highest_temp,
 	pack_volt,
-	lowest_temp;
+	lowest_temp,
+	current_draw;
+
 
 	uint8_t dis_en_status;
 

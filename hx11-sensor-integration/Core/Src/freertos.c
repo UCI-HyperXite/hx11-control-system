@@ -722,6 +722,7 @@ void StartCANTask(void *argument)
 	sensorData.highest_temp = bmsData.highestTemp;
 	sensorData.pack_volt = bmsData.packVoltage;
 	sensorData.lowest_temp = bmsData.lowestTemp;
+	sensorData.current_draw = bmsData.currentDraw;
 	sensorData.relay_status = bmsData.relayStatus;
 
 	osMutexRelease(sensorMutex);
