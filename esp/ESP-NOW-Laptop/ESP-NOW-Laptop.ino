@@ -53,6 +53,7 @@ typedef struct __attribute__((packed)) SensorData {
 	highest_temp,
 	pack_volt,
 	lowest_temp;
+  currentDraw;
 
 	uint8_t dis_en_status;
          
@@ -166,6 +167,7 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   Serial.print(",\"highest_temp\":"); Serial.print(telemetryData.highest_temp, 2);
   Serial.print(",\"pack_volt\":"); Serial.print(telemetryData.pack_volt, 2);
   Serial.print(",\"lowest_temp\":"); Serial.print(telemetryData.lowest_temp, 2);
+  Serial.print(",\"pack_current\":"); Serial.print(telemetryData.currentDraw, 2);
 
   Serial.print(",\"dis_en_status\":"); Serial.print(telemetryData.dis_en_status);
 

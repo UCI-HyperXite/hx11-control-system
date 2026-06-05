@@ -53,6 +53,7 @@ typedef struct __attribute__((packed)) SensorData {
 	highest_temp,
 	pack_volt,
 	lowest_temp;
+  currentDraw;
 
 	uint8_t dis_en_status;
            
